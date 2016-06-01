@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+  <meta charset="utf-8">
+  <!-- (1) Optimize for mobile versions: http://goo.gl/EOpFl -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- (1) force latest IE rendering engine: bit.ly/1c8EiC9 -->
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  <title>Why Care About PHP Middleware? | Phil Sturgeon</title>
+  <meta name="description" content="I used to contribute to the PHP-FIG, The League of Extraordinary Packages, PHP The Right Way, CodeIgniter, FuelPHP, PyroCMS and a bunch of other stuff, but I gave it all up to join the circus." />
+
+  <meta name="HandheldFriendly" content="True" />
+  <meta name="MobileOptimized" content="320" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <link rel="stylesheet" href="//brick.a.ssl.fastly.net/Linux+Libertine:400,400i,700,700i/Open+Sans:400,400i,700,700i">
+  <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+
+  <link href="/stylesheets/main.css" rel="stylesheet" media="screen" />
+  <link href="/stylesheets/print.css" rel="stylesheet" media="print" />
+  <link href="/images/favicon.png" rel="icon" type="image/png" />
+
+  <meta property="og:title" content="Why Care About PHP Middleware?" />
+  <meta property="og:type" content="article" />
+  <meta property="article:author" content="Phil Sturgeon" />
+  <meta property="og:description" content="Recently there has been a lot of buzz about HTTP middleware in PHP. Since PSR-7 was accepted, everyone and their friend Sherly has been knocking out middleware implementations, some of them stunning, some of them half-arsed, and some of them rolled into existing frameworks. HTTP Middleware is a wonderful thing, but the PHP-FIG is working on a specific standard for middleware, which will standardise this mess of implementations, but some folks don&#x27;t seem to think that would be useful." />
+  <meta property="og:site_name" content="Phil Sturgeon" />
+  <meta property="og:image" content="https://philsturgeon.uk/images/author.jpg" />
+  <meta property="og:url" content="https://philsturgeon.uk/2016/05/31/why-care-about-php-middleware/" />
+  <meta property="og:locale" content="en_GB" />
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:site" content="@philsturgeon">
+  <meta name="twitter:title" content="Why Care About PHP Middleware? | Phil Sturgeon">
+  <meta name="twitter:image:src" content="https://philsturgeon.uk/images/author.jpg">
+  <meta name="twitter:url" content="https://philsturgeon.uk/2016/05/31/why-care-about-php-middleware/">
+  <meta name="twitter:description" content="Recently there has been a lot of buzz about HTTP middleware in PHP. Since PSR-7 was accepted, everyone and their friend Sherly has been knocking out middleware implementations, some of them stunning, some of them half-arsed, and some of them rolled into existing frameworks. HTTP Middleware is a wonderful thing, but the PHP-FIG is working on a specific standard for middleware, which will standardise this mess of implementations, but some folks don&#x27;t seem to think that would be useful.">
+  <meta name="twitter:creator" content="@philsturgeon">
+
+  <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="/feed.xml" />
+</head>
+
+
+  <body>
+
+    <a class='fa fa-home logo-readium' href='/'></a>
+
+
+    <!-- content start -->
+
+    <main class="content" role="main">
+      <article class="post">
+        <div class="noarticleimage">
+          <div class="post-meta">
+            <h1 class="post-title">Why Care About PHP Middleware?</h1>
+            <div class="cf post-meta-text">
+              <div class="author-image" style="background-image: url(/images/author.jpg)">Blog Logo</div>
+              <h4 class="author-name" itemprop="author" itemscope itemtype="http://schema.org/Person">Phil Sturgeon</h4>
+              on
+              <time datetime="2016-05-31 14:38:00 UTC">
+                May 31 2016
+              </time>
+            </div>
+          </div>
+        </div>
+        <br>
+        <br>
+        <br>
+        <section class="post-content">
+          <div class="post-reading">
+            <span class="post-reading-time"></span> read
+          </div>
+          <a name="topofpage"></a>
+          <p>Recently there has been a lot of buzz about HTTP middleware in PHP. Since <a href="http://www.php-fig.org/psr/psr-7/">PSR-7</a> was accepted, everyone and their friend Sherly has been knocking out middleware implementations, some of them stunning, some of them half-arsed, and some of them rolled into existing frameworks. HTTP Middleware is a wonderful thing, but the <a href="http://php-fig.org/">PHP-FIG</a> is working on a specific standard for middleware, which will standardise this mess of implementations, but some folks don't seem to think that would be useful.</p>
+
+<blockquote class="twitter-tweet" data-lang="en"><p lang="en" dir="ltr">IMO it remains to be demonstrated that sharing &quot;generic&quot; middleware saves more than about 5 min of dev time to begin with. <a href="https://twitter.com/hashtag/psr7?src=hash">#psr7</a></p>&mdash; Taylor Otwell (@taylorotwell) <a href="https://twitter.com/taylorotwell/status/734049190460817408">May 21, 2016</a></blockquote>
+<script async="" src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+<p>Let's look into middleware a little closer, to show you why it's something to smile about.</p>
+
+<h2 id="background">Background</h2>
+
+<p>HTTP Middleware is by no means a new concept, either in general, or to PHP. The idea is to wrap your application logic (eg: controllers) up in a way that looks like an onion, having concentric layers of stuff happening before and after the central logic runs: reading from the request and writing to the response. Some layers might notice a problem and exit early skipping your application logic altogether. Others will add headers to the response, or do other fancy stuff.</p>
+
+<p>Anthony Ferrara wrote an example of that here:</p>
+
+<pre class="highlight php"><code><span class="cp">&lt;?php</span>
+
+<span class="k">use</span> <span class="nx">Tari\ServerMiddlewareInterface</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Tari\ServerFrameInterface</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Psr\Http\Message\ServerRequestInterface</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Psr\Http\Message\ResponseInterface</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">Foo</span> <span class="k">implements</span> <span class="nx">ServerMiddlewareInterface</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">handle</span><span class="p">(</span>
+      <span class="nx">ServerRequestInterface</span> <span class="nv">$request</span><span class="p">,</span>
+      <span class="nx">ServerFrameInterface</span> <span class="nv">$frame</span>
+    <span class="p">)</span><span class="o">:</span> <span class="nx">ResponseInterface</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">isBadRequest</span><span class="p">(</span><span class="nv">$request</span><span class="p">))</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="nv">$frame</span><span class="o">-&gt;</span><span class="na">factory</span><span class="p">()</span>
+              <span class="o">-&gt;</span><span class="na">createResponse</span><span class="p">(</span><span class="s2">"Bad Request"</span><span class="p">,</span> <span class="mi">400</span><span class="p">);</span>
+        <span class="p">}</span>
+
+        <span class="k">return</span> <span class="nv">$frame</span><span class="o">-&gt;</span><span class="na">next</span><span class="p">(</span><span class="nv">$request</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+<p>I stole this image from Slim Framework to help explain the general concept.</p>
+
+<p><img alt="Diagram stolen from Slim Framework showing how HTTP middleware layers wrap an application. " src="/images/article_images/2016-05-31-why-care-about-php-middleware/middleware.png" /></p>
+
+<p>PHP was a bit late to the game with middleware, because of the way PHP's web interaction code happened. Seeing as PHP was built intentionally for the web from scratch, we've always had a bunch of ways to get to web related data. PHP had <code>get_apache_headers()</code> to read headers if it's on Apache or <code>$_SERVER['HTTP_FOO']</code> to read kinda headers, <code>header()</code> to manually set response headers, <code>$_GET</code> to access query string parameters, <code>$_POST</code> to access the HTTP body if the <code>Content-Type</code> is <code>application/x-www-form-urlencoded</code> and <code>fopen('php://input', 'r')</code> for the raw body otherwise.</p>
+
+<p>That is quite clearly a bit shit, inconsistent and can be rather hard to fake for the purposes of testing. Regardless of being shit, it <em>was</em> possible to access all of this stuff. Other languages like Python and Ruby didn't really have the same level of access, so they ended up building themselves some nice systems to handle it: <a href="http://chneukirchen.org/blog/archive/2007/02/introducing-rack.html">Rack for Ruby</a> and <a href="http://wsgi.tutorial.codepoint.net/">WSGI for Python</a>.</p>
+
+<p>A bountiful supply of HTTP middlewares sprung forth for these systems, including things like:</p>
+
+<ul>
+  <li>A/B Testing</li>
+  <li>Debugging</li>
+  <li>Caching</li>
+  <li>CORS</li>
+  <li>CSRF Protection</li>
+  <li>HTTP Basic Auth</li>
+  <li>OAuth 2.0</li>
+  <li>OpenID</li>
+  <li>Rate Limiting</li>
+  <li>Referrals</li>
+  <li>IP Restriction</li>
+</ul>
+
+<p>These are just a few examples of things that middleware can provide any web framework that supports a HTTP middleware standard. Here is a <a href="https://github.com/rack/rack/wiki/List-of-Middleware">non-extensive list of what Rack has</a>. If not provided by middleware, the framework has to offer it, or application developers need to build it. That's a lot of work that multiple people need to do instead of working on business requirements.</p>
+
+<p>These systems became de-facto standards, allowing web servers and web frameworks alike to agree on an interface for requests and responses, allowing HTTP middlewares to be constructed and shared around regardless of the framework.</p>
+
+<p>PHP however didn't do that. Unhappy with the way PHP provided access to the request/response stuff, various frameworks wrapped up the request and the response with their own implementations, allowing some frameworks to build their own middleware on top of that logic. These custom request and response implementations made it impossible to build any sort of re-usable middleware because they were all completely different, with different classes and different methods and it was impossible to work with them. <a href="http://symfony.com/doc/master//components/http_foundation/index.html">Symfony's HttpFoundation</a> did emerge as the most popular, but just didn't manage to become the defacto standard for HTTP Messages as we could have hoped.</p>
+
+<p><a href="http://stackphp.com/">StackPHP</a> came along as an attempt to show the PHP world how middlewares could be built and shared, and was built on top of Symfony's HttpFoundation, but the project was largely ignored by the major frameworks and it ultimately ended up not really doing anything. It was in Laravel for a bit, but they ended up tossing it and rolling their own. There are also ~20 dead Rack ports written in PHP floating around on GitHub and Packagist that didn't try anywhere near as hard as StackPHP to get going. Simply put HTTP Middleware in PHP is not a technical problem, or a failure of the language, it's a community issue.</p>
+
+<p>Unlike the way the Ruby and Python communities ability to align on a single solution, PHP needs the elders of the large framework tribes to come together to pick standard interfaces for these things to get the same affect. This in turn pushes large swathes of the community towards a single standard, and if it comes with framework approval people end up using it regardless. Luckily we're half way to that solution with <a href="http://www.php-fig.org/psr/psr-7/">PSR-7</a>, which specifies interfaces for HTTP requests and responses. Awesome!</p>
+
+<h2 id="psr-7-isnt-enough">PSR-7 Isn't Enough</h2>
+
+<p>PSR-7 only defines the request and response, not the "handler" itself, which is the logic that accepts a request, returns a response and "does stuff" in the middle. The handler needs a new PSR, and the FIG are working on that as we speak.</p>
+
+<p>Whilst you can build a HTTP Middleware implementation with <a href="http://www.php-fig.org/psr/psr-7/">PSR-7</a>, each implementation looks a little different, meaning the handlers are a little different. This is where standardization comes in.</p>
+
+<p>There is currently a healthy amount of discussion between a few interested parties on the FIG mailing list about which approach to HTTP Middleware should be used for the standard itself. There's the way <a href="http://www.slimframework.com/docs/concepts/middleware.html">Slim Framework</a> works (along with a bunch of smaller implementations), and the way that <a href="http://stackphp.com/">StackPHP</a> and <a href="https://laravel.com/docs/master/middleware">Laravel</a> implement middleware, which is much closer to how Rack works.</p>
+
+<p>One looks like this:</p>
+
+<blockquote>
+  <p>fn(request, response, next): response</p>
+</blockquote>
+
+<p>Another looks like this:</p>
+
+<blockquote>
+  <p>fn(request, frame): response</p>
+</blockquote>
+
+<p>For a big long super in depth hardcore technical explanation of the difference between the two approaches, check out Anthony Ferrara's article <a href="http://blog.ircmaxell.com/2016/05/all-about-middleware.html">"All About Middleware"</a>. Anthony is certainly no fan of the first approach, and points out a bunch of potential technical downsides. <a href="https://twitter.com/shadowhand">Woody Gilk</a> - editor for the <a href="https://github.com/php-fig/fig-standards/pull/755">HTTP Middleware PSR</a> - writes up a response in his article <a href="http://shadowhand.me/all-about-psr-7-middleware/">"All About PSR-7 Middleware"</a>.</p>
+
+<p>Yesterday this proposed PSR <a href="https://groups.google.com/forum/#!msg/php-fig/v9AijALWJhI/s3TPH-0pAQAJ">passed the Entrance Vote</a>, meaning it will henceforth be known as PSR 15. Now that is has passed the Entrance Vote it's time to hash out the specifics of the implementation, and I'm excited to see what happens. There are a bunch of issues to work through, but the important thing to take away from the discussion is: clearly there are at least two rather different ways of doing this.</p>
+
+<h2 id="how-useful-is-middleware">How Useful Is Middleware?</h2>
+
+<p>Other than the specific technical details of the interface, the only question left is the one from Taylor:</p>
+
+<blockquote class="twitter-tweet" data-lang="en"><p lang="en" dir="ltr">IMO it remains to be demonstrated that sharing &quot;generic&quot; middleware saves more than about 5 min of dev time to begin with. <a href="https://twitter.com/hashtag/psr7?src=hash">#psr7</a></p>&mdash; Taylor Otwell (@taylorotwell) <a href="https://twitter.com/taylorotwell/status/734049190460817408">May 21, 2016</a></blockquote>
+<script async="" src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+<p>The assertion that middleware is "only five minutes of work" is quite off, and the idea that it is unproven is just not accurate. Middleware has been insanely useful in many other languages. I've used it in Ruby and Go extensively, and I'm excited to see it come to PHP in a useful way.</p>
+
+<p>Chatting with Taylor the idea of "middleware is only five minutes of work" is based on the idea that there is a single, generic, framework agnostic package for whatever needs to be done. Now, I'm excited to hear Laravelfolk suggest this because normally I'm wanting those people to think this way. In the past I've <a href="https://philsturgeon.uk/php/2014/01/02/the-tribal-framework-mindset/">begged people to build framework agnostic code</a> instead of tying it to Laravel.</p>
+
+<p>Even <em>if</em> we can rely on there being a single, generic, framework agnostic package for literally anything me might want to build into our middleware, the idea that it would only be five minutes of work is still just not.</p>
+
+<p>Looking at one of the most simple StackPHP middlewares:</p>
+
+<pre class="highlight php"><code><span class="cp">&lt;?php</span> <span class="k">namespace</span> <span class="nx">Alsar\Stack</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Symfony\Component\HttpKernel\HttpKernelInterface</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\HttpFoundation\Request</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\HttpFoundation\Response</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">IpRestrict</span> <span class="k">implements</span> <span class="nx">HttpKernelInterface</span>
+<span class="p">{</span>
+    <span class="sd">/**
+     * @var HttpKernelInterface
+     */</span>
+    <span class="k">private</span> <span class="nv">$app</span><span class="p">;</span>
+
+    <span class="sd">/**
+     * @var array
+     */</span>
+    <span class="k">private</span> <span class="nv">$allowedIps</span><span class="p">;</span>
+
+    <span class="sd">/**
+     * @param HttpKernelInterface $app
+     * @param array               $allowedIps
+     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">__construct</span><span class="p">(</span>
+      <span class="nx">HttpKernelInterface</span> <span class="nv">$app</span><span class="p">,</span>
+      <span class="k">array</span> <span class="nv">$allowedIps</span>
+    <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">app</span> <span class="o">=</span> <span class="nv">$app</span><span class="p">;</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">allowedIps</span> <span class="o">=</span> <span class="nv">$allowedIps</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="sd">/**
+     * {@inheritdoc}
+     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">handle</span><span class="p">(</span>
+      <span class="nx">Request</span> <span class="nv">$request</span><span class="p">,</span>
+      <span class="nv">$type</span> <span class="o">=</span> <span class="nx">self</span><span class="o">::</span><span class="na">MASTER_REQUEST</span><span class="p">,</span>
+      <span class="nv">$catch</span> <span class="o">=</span> <span class="kc">true</span>
+    <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$ip</span> <span class="o">=</span> <span class="nv">$request</span><span class="o">-&gt;</span><span class="na">getClientIp</span><span class="p">();</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nb">in_array</span><span class="p">(</span><span class="nv">$ip</span><span class="p">,</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">allowedIps</span><span class="p">))</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="k">new</span> <span class="nx">Response</span><span class="p">(</span>
+              <span class="nb">sprintf</span><span class="p">(</span><span class="s1">'IP %s is not allowed.'</span><span class="p">,</span> <span class="nv">$ip</span><span class="p">),</span>
+              <span class="mi">403</span>
+            <span class="p">);</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">app</span><span class="o">-&gt;</span><span class="na">handle</span><span class="p">(</span><span class="nv">$request</span><span class="p">,</span> <span class="nv">$type</span><span class="p">,</span> <span class="nv">$catch</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+<p>If you can write that code, with dependency injection, docblocks, find the correct HTTP status code (remembering not to use <code>401</code> as so many people incorrectly do) and write the unit tests for it in less than five minutes you're an absolute champion.</p>
+
+<p>Even <em>if</em> you're an absolute champion, the idea that you <em>should</em> need to write this &lt; 5 minutes of code is odd.</p>
+
+<p>Most middleware implementations offer the ability to pile up a bunch of classes containing the handlers, and it'll run through them in order:</p>
+
+<pre class="highlight php"><code><span class="cp">&lt;?php</span>
+
+<span class="nx">Equip\Application</span><span class="o">::</span><span class="na">build</span><span class="p">()</span>  
+<span class="c1">// ...
+</span><span class="o">-&gt;</span><span class="na">setMiddleware</span><span class="p">([</span>
+    <span class="nx">Relay\Middleware\ResponseSender</span><span class="o">::</span><span class="na">class</span><span class="p">,</span>
+    <span class="nx">Equip\Handler\ExceptionHandler</span><span class="o">::</span><span class="na">class</span><span class="p">,</span>
+    <span class="nx">Equip\Handler\DispatchHandler</span><span class="o">::</span><span class="na">class</span><span class="p">,</span>
+    <span class="c1">// ...
+</span>    <span class="nx">Equip\Handler\ActionHandler</span><span class="o">::</span><span class="na">class</span><span class="p">,</span>
+<span class="p">])</span>
+<span class="c1">// ...
+</span><span class="o">-&gt;</span><span class="na">run</span><span class="p">();</span>
+</code></pre>
+
+<p><em>Example taken from <a href="http://equip.github.io/">Equip</a>, a little middleware implementation Woody is working on.</em></p>
+
+<p>Would you rather reference a class or get involved with writing your own handlers every single time, for each application?</p>
+
+<p>I know I'd rather not. I'd rather be out on my bike or in the pub! :D</p>
+
+<h2 id="summary">Summary</h2>
+
+<p>HTTP Middleware is awesome. It lets frameworks do far less, it lets people distribute logic in a way often unseen popularly in PHP, it lets more of your application be reusable, and it lets PHP catch up with other popular languages used to build stuff on the web.</p>
+
+<p><a href="http://www.php-fig.org/psr/psr-7/">PSR-7</a> was a great step towards this goal, but we need another PSR to get the whole way there.</p>
+
+
+          <hr>
+<p>
+  <em>I do my best writing over a cider or three, so it only stands to reason that if you like my articles and want me to continue writing, you should <a href="https://www.morallicense.com/philsturgeon/buy-me-a-cider">grab me a cheeky pint!</a></em>
+</p>
+
+        </section>
+        <footer class="post-footer">
+            <section class="share">
+                  <a class="icon-twitter" href="https://twitter.com/share?text=Why Care About PHP Middleware?&amp;url=https://philsturgeon.uk/2016/05/31/why-care-about-php-middleware/"
+                    onclick="window.open(this.href, 'twitter-share', 'width=550,height=255');return false;">
+                  <i class="fa fa-twitter"></i><span class="hidden">twitter</span>
+                  </a>
+                  <a class="icon-facebook" href="https://www.facebook.com/sharer.php?t=Why Care About PHP Middleware?&amp;u=https://philsturgeon.uk/2016/05/31/why-care-about-php-middleware/"
+                    onclick="window.open(this.href, 'facebook-share', 'width=550,height=255');return false;">
+                  <i class="fa fa-facebook"></i><span class="hidden">facebook</span>
+                  </a>
+            </section>
+            <section class="post-next-previous">
+                <p>
+                    Previous:
+                    <a class="button" href="/api/2016/05/03/put-vs-patch-vs-json-patch/">PUT vs PATCH vs JSON-PATCH</a>
+                </p>
+            </section>
+        </footer>
+        <div class="bottom-teaser cf">
+          <div class="more isLeft">
+            <h5 class="index-headline featured"><span>Written by</span></h5>
+            <section class="author">
+              <div class="author-image" style="background-image: url(/images/author.jpg)">Blog Logo</div>
+              <h4>Phil Sturgeon</h4>
+              <p class="bio">I used to contribute to the PHP-FIG, The League of Extraordinary Packages, PHP The Right Way, CodeIgniter, FuelPHP, PyroCMS and a bunch of other stuff, but I gave it all up to join the circus.</p>
+            </section>
+          </div>
+          <div class="more isRight">
+            <h5 class="index-headline featured"><span>More Writing</span></h5>
+            <section class="author">
+              <a href="http://apisyouwonthate.com/">
+                <div class="book-image build-apis">Book Cover</div>
+                <h4>Build APIs You Won't Hate</h4>
+              </a>
+              <p class="bio">Everyone and their dog wants an API, so you should probably learn how to build them.</p>
+              <p><a href="http://apisyouwonthate.com/">Buy it from LeanPub or Amazon</a>.</p>
+            </section>
+          </div>
+        </div>
+      </article>
+
+
+    </main>
+    <div class="bottom-closer">
+      <div class="background-closer-image" style="background-image: url(/images/ciderphpants.jpg)">
+        Image
+      </div>
+      <div class="inner">
+        <h1 class="blog-title">Phil Sturgeon</h1>
+        <h2 class="blog-description">I used to contribute to the PHP-FIG, The League of Extraordinary Packages, PHP The Right Way, CodeIgniter, FuelPHP, PyroCMS and a bunch of other stuff, but I gave it all up to join the circus.</h2>
+        <a href="/" class="btn">Back to Overview</a>
+      </div>
+    </div>
+
+    <!-- content end -->
+
+    <footer class='footer' role='contentinfo'>
+  <div class='footer-links'>
+    <ul class='context'>
+      <li>
+        <h3>Content</h3>
+      </li>
+      <li>
+        <a href='/about'>About</a>
+      </li>
+      <li>
+        <a href='/books'>Books</a>
+      </li>
+    </ul>
+    <ul class='follow'>
+      <li>
+        <h3>Follow Me</h3>
+      </li>
+      <li>
+        <a href='https://twitter.com/philsturgeon'>Twitter</a>
+      </li>
+      <li>
+        <a href='https://github.com/'>GitHub</a>
+      </li>
+      <li>
+        <a href='http://phptownhall.com/'>PHP Town Hall</a>
+      </li>
+    </ul>
+    <ul class='recent_posts'>
+      <li>
+        <h3>Recent Posts</h3>
+        <ul>
+          <li><a href="/2016/05/31/why-care-about-php-middleware/">Why Care About PHP Middleware?</a></li>
+          <li><a href="/api/2016/05/03/put-vs-patch-vs-json-patch/">PUT vs PATCH vs JSON-PATCH</a></li>
+          <li><a href="/2016/03/02/loudly-ignoring-how-cocs-work/">Loudly Ignoring How CoCs Work</a></li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+</footer>
+
+    <script src="//code.jquery.com/jquery-1.11.3.min.js"></script>
+<script src="/javascripts/jquery.fitvids.js"></script>
+<script src="/javascripts/index.js"></script>
+<script src="/javascripts/readingTime.min.js"></script>
+<script>
+(function ($) {
+  "use strict";
+  $(document).ready(function(){
+
+    var $window = $(window),
+    $image = $('.post-image-image, .teaserimage-image');
+    $window.on('scroll', function() {
+      var top = $window.scrollTop();
+
+      if (top < 0 || top > 1500) { return; }
+      $image
+        .css('transform', 'translate3d(0px, '+top/3+'px, 0px)')
+        .css('opacity', 1-Math.max(top/700, 0));
+    });
+    $window.trigger('scroll');
+
+    var height = $('.article-image').height();
+    $('.post-content').css('padding-top', height + 'px');
+
+    $('a[href*=#]:not([href=#])').click(function() {
+      if (location.pathname.replace(/^\//,'') == this.pathname.replace(/^\//,'')
+       && location.hostname == this.hostname) {
+        var target = $(this.hash);
+        target = target.length ? target : $('[name=' + this.hash.slice(1) +']');
+        if (target.length) {
+          $('html,body').animate({ scrollTop: target.offset().top }, 500);
+          return false;
+        }
+      }
+    });
+  });
+}(jQuery));
+</script>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-8523256-1', 'auto');
+  ga('send', 'pageview');
+
+</script>
+
+
+  </body>
+
+</html>

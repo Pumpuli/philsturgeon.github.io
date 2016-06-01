@@ -1,0 +1,926 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Phil Sturgeon</title>
+  <subtitle>I used to contribute to the PHP-FIG, The League of Extraordinary Packages, PHP The Right Way, CodeIgniter, FuelPHP, PyroCMS and a bunch of other stuff, but I gave it all up to join the circus.</subtitle>
+  <id>https://philsturgeon.uk/</id>
+  <link href="https://philsturgeon.uk/"/>
+  <link href="https://philsturgeon.uk/feed.xml" rel="self"/>
+  <updated>2016-05-31T16:38:00+02:00</updated>
+  <author>
+    <name>Phil Sturgeon</name>
+  </author>
+  <entry>
+    <title>Why Care About PHP Middleware?</title>
+    <link rel="alternate" href="https://philsturgeon.uk/2016/05/31/why-care-about-php-middleware/"/>
+    <id>https://philsturgeon.uk/2016/05/31/why-care-about-php-middleware/</id>
+    <published>2016-05-31T16:38:00+02:00</published>
+    <updated>2016-06-01T18:12:49+02:00</updated>
+    <summary type="html">Recently there has been a lot of buzz about HTTP middleware in PHP. Since PSR-7 was accepted, everyone and their friend Sherly has been knocking out middleware implementations, some of them stunning, some of them half-arsed, and some of them rolled into existing frameworks. HTTP Middleware is a wonderful thing, but the PHP-FIG is working on a specific standard for middleware, which will standardise this mess of implementations, but some folks don't seem to think that would be useful.</summary>
+    <content type="html">&lt;p&gt;Recently there has been a lot of buzz about HTTP middleware in PHP. Since &lt;a href="http://www.php-fig.org/psr/psr-7/"&gt;PSR-7&lt;/a&gt; was accepted, everyone and their friend Sherly has been knocking out middleware implementations, some of them stunning, some of them half-arsed, and some of them rolled into existing frameworks. HTTP Middleware is a wonderful thing, but the &lt;a href="http://php-fig.org/"&gt;PHP-FIG&lt;/a&gt; is working on a specific standard for middleware, which will standardise this mess of implementations, but some folks don't seem to think that would be useful.&lt;/p&gt;
+
+&lt;blockquote class="twitter-tweet" data-lang="en"&gt;&lt;p lang="en" dir="ltr"&gt;IMO it remains to be demonstrated that sharing &amp;quot;generic&amp;quot; middleware saves more than about 5 min of dev time to begin with. &lt;a href="https://twitter.com/hashtag/psr7?src=hash"&gt;#psr7&lt;/a&gt;&lt;/p&gt;&amp;mdash; Taylor Otwell (@taylorotwell) &lt;a href="https://twitter.com/taylorotwell/status/734049190460817408"&gt;May 21, 2016&lt;/a&gt;&lt;/blockquote&gt;
+&lt;script async="" src="//platform.twitter.com/widgets.js" charset="utf-8"&gt;&lt;/script&gt;
+
+&lt;p&gt;Let's look into middleware a little closer, to show you why it's something to smile about.&lt;/p&gt;
+
+&lt;h2 id="background"&gt;Background&lt;/h2&gt;
+
+&lt;p&gt;HTTP Middleware is by no means a new concept, either in general, or to PHP. The idea is to wrap your application logic (eg: controllers) up in a way that looks like an onion, having concentric layers of stuff happening before and after the central logic runs: reading from the request and writing to the response. Some layers might notice a problem and exit early skipping your application logic altogether. Others will add headers to the response, or do other fancy stuff.&lt;/p&gt;
+
+&lt;p&gt;Anthony Ferrara wrote an example of that here:&lt;/p&gt;
+
+&lt;pre class="highlight php"&gt;&lt;code&gt;&lt;span class="cp"&gt;&amp;lt;?php&lt;/span&gt;
+
+&lt;span class="k"&gt;use&lt;/span&gt; &lt;span class="nx"&gt;Tari\ServerMiddlewareInterface&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="k"&gt;use&lt;/span&gt; &lt;span class="nx"&gt;Tari\ServerFrameInterface&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+
+&lt;span class="k"&gt;use&lt;/span&gt; &lt;span class="nx"&gt;Psr\Http\Message\ServerRequestInterface&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="k"&gt;use&lt;/span&gt; &lt;span class="nx"&gt;Psr\Http\Message\ResponseInterface&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+
+&lt;span class="k"&gt;class&lt;/span&gt; &lt;span class="nc"&gt;Foo&lt;/span&gt; &lt;span class="k"&gt;implements&lt;/span&gt; &lt;span class="nx"&gt;ServerMiddlewareInterface&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="k"&gt;public&lt;/span&gt; &lt;span class="k"&gt;function&lt;/span&gt; &lt;span class="nf"&gt;handle&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;
+      &lt;span class="nx"&gt;ServerRequestInterface&lt;/span&gt; &lt;span class="nv"&gt;$request&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+      &lt;span class="nx"&gt;ServerFrameInterface&lt;/span&gt; &lt;span class="nv"&gt;$frame&lt;/span&gt;
+    &lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="nx"&gt;ResponseInterface&lt;/span&gt;
+    &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;$this&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="na"&gt;isBadRequest&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;$request&lt;/span&gt;&lt;span class="p"&gt;))&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+            &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="nv"&gt;$frame&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="na"&gt;factory&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
+              &lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="na"&gt;createResponse&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s2"&gt;"Bad Request"&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;400&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+        &lt;span class="p"&gt;}&lt;/span&gt;
+
+        &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="nv"&gt;$frame&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="na"&gt;next&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;$request&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;I stole this image from Slim Framework to help explain the general concept.&lt;/p&gt;
+
+&lt;p&gt;&lt;img alt="Diagram stolen from Slim Framework showing how HTTP middleware layers wrap an application. " src="/images/article_images/2016-05-31-why-care-about-php-middleware/middleware.png" /&gt;&lt;/p&gt;
+
+&lt;p&gt;PHP was a bit late to the game with middleware, because of the way PHP's web interaction code happened. Seeing as PHP was built intentionally for the web from scratch, we've always had a bunch of ways to get to web related data. PHP had &lt;code&gt;get_apache_headers()&lt;/code&gt; to read headers if it's on Apache or &lt;code&gt;$_SERVER['HTTP_FOO']&lt;/code&gt; to read kinda headers, &lt;code&gt;header()&lt;/code&gt; to manually set response headers, &lt;code&gt;$_GET&lt;/code&gt; to access query string parameters, &lt;code&gt;$_POST&lt;/code&gt; to access the HTTP body if the &lt;code&gt;Content-Type&lt;/code&gt; is &lt;code&gt;application/x-www-form-urlencoded&lt;/code&gt; and &lt;code&gt;fopen('php://input', 'r')&lt;/code&gt; for the raw body otherwise.&lt;/p&gt;
+
+&lt;p&gt;That is quite clearly a bit shit, inconsistent and can be rather hard to fake for the purposes of testing. Regardless of being shit, it &lt;em&gt;was&lt;/em&gt; possible to access all of this stuff. Other languages like Python and Ruby didn't really have the same level of access, so they ended up building themselves some nice systems to handle it: &lt;a href="http://chneukirchen.org/blog/archive/2007/02/introducing-rack.html"&gt;Rack for Ruby&lt;/a&gt; and &lt;a href="http://wsgi.tutorial.codepoint.net/"&gt;WSGI for Python&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;A bountiful supply of HTTP middlewares sprung forth for these systems, including things like:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;A/B Testing&lt;/li&gt;
+  &lt;li&gt;Debugging&lt;/li&gt;
+  &lt;li&gt;Caching&lt;/li&gt;
+  &lt;li&gt;CORS&lt;/li&gt;
+  &lt;li&gt;CSRF Protection&lt;/li&gt;
+  &lt;li&gt;HTTP Basic Auth&lt;/li&gt;
+  &lt;li&gt;OAuth 2.0&lt;/li&gt;
+  &lt;li&gt;OpenID&lt;/li&gt;
+  &lt;li&gt;Rate Limiting&lt;/li&gt;
+  &lt;li&gt;Referrals&lt;/li&gt;
+  &lt;li&gt;IP Restriction&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;These are just a few examples of things that middleware can provide any web framework that supports a HTTP middleware standard. Here is a &lt;a href="https://github.com/rack/rack/wiki/List-of-Middleware"&gt;non-extensive list of what Rack has&lt;/a&gt;. If not provided by middleware, the framework has to offer it, or application developers need to build it. That's a lot of work that multiple people need to do instead of working on business requirements.&lt;/p&gt;
+
+&lt;p&gt;These systems became de-facto standards, allowing web servers and web frameworks alike to agree on an interface for requests and responses, allowing HTTP middlewares to be constructed and shared around regardless of the framework.&lt;/p&gt;
+
+&lt;p&gt;PHP however didn't do that. Unhappy with the way PHP provided access to the request/response stuff, various frameworks wrapped up the request and the response with their own implementations, allowing some frameworks to build their own middleware on top of that logic. These custom request and response implementations made it impossible to build any sort of re-usable middleware because they were all completely different, with different classes and different methods and it was impossible to work with them. &lt;a href="http://symfony.com/doc/master//components/http_foundation/index.html"&gt;Symfony's HttpFoundation&lt;/a&gt; did emerge as the most popular, but just didn't manage to become the defacto standard for HTTP Messages as we could have hoped.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href="http://stackphp.com/"&gt;StackPHP&lt;/a&gt; came along as an attempt to show the PHP world how middlewares could be built and shared, and was built on top of Symfony's HttpFoundation, but the project was largely ignored by the major frameworks and it ultimately ended up not really doing anything. It was in Laravel for a bit, but they ended up tossing it and rolling their own. There are also ~20 dead Rack ports written in PHP floating around on GitHub and Packagist that didn't try anywhere near as hard as StackPHP to get going. Simply put HTTP Middleware in PHP is not a technical problem, or a failure of the language, it's a community issue.&lt;/p&gt;
+
+&lt;p&gt;Unlike the way the Ruby and Python communities ability to align on a single solution, PHP needs the elders of the large framework tribes to come together to pick standard interfaces for these things to get the same affect. This in turn pushes large swathes of the community towards a single standard, and if it comes with framework approval people end up using it regardless. Luckily we're half way to that solution with &lt;a href="http://www.php-fig.org/psr/psr-7/"&gt;PSR-7&lt;/a&gt;, which specifies interfaces for HTTP requests and responses. Awesome!&lt;/p&gt;
+
+&lt;h2 id="psr-7-isnt-enough"&gt;PSR-7 Isn't Enough&lt;/h2&gt;
+
+&lt;p&gt;PSR-7 only defines the request and response, not the "handler" itself, which is the logic that accepts a request, returns a response and "does stuff" in the middle. The handler needs a new PSR, and the FIG are working on that as we speak.&lt;/p&gt;
+
+&lt;p&gt;Whilst you can build a HTTP Middleware implementation with &lt;a href="http://www.php-fig.org/psr/psr-7/"&gt;PSR-7&lt;/a&gt;, each implementation looks a little different, meaning the handlers are a little different. This is where standardization comes in.&lt;/p&gt;
+
+&lt;p&gt;There is currently a healthy amount of discussion between a few interested parties on the FIG mailing list about which approach to HTTP Middleware should be used for the standard itself. There's the way &lt;a href="http://www.slimframework.com/docs/concepts/middleware.html"&gt;Slim Framework&lt;/a&gt; works (along with a bunch of smaller implementations), and the way that &lt;a href="http://stackphp.com/"&gt;StackPHP&lt;/a&gt; and &lt;a href="https://laravel.com/docs/master/middleware"&gt;Laravel&lt;/a&gt; implement middleware, which is much closer to how Rack works.&lt;/p&gt;
+
+&lt;p&gt;One looks like this:&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;fn(request, response, next): response&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Another looks like this:&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;fn(request, frame): response&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;For a big long super in depth hardcore technical explanation of the difference between the two approaches, check out Anthony Ferrara's article &lt;a href="http://blog.ircmaxell.com/2016/05/all-about-middleware.html"&gt;"All About Middleware"&lt;/a&gt;. Anthony is certainly no fan of the first approach, and points out a bunch of potential technical downsides. &lt;a href="https://twitter.com/shadowhand"&gt;Woody Gilk&lt;/a&gt; - editor for the &lt;a href="https://github.com/php-fig/fig-standards/pull/755"&gt;HTTP Middleware PSR&lt;/a&gt; - writes up a response in his article &lt;a href="http://shadowhand.me/all-about-psr-7-middleware/"&gt;"All About PSR-7 Middleware"&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Yesterday this proposed PSR &lt;a href="https://groups.google.com/forum/#!msg/php-fig/v9AijALWJhI/s3TPH-0pAQAJ"&gt;passed the Entrance Vote&lt;/a&gt;, meaning it will henceforth be known as PSR 15. Now that is has passed the Entrance Vote it's time to hash out the specifics of the implementation, and I'm excited to see what happens. There are a bunch of issues to work through, but the important thing to take away from the discussion is: clearly there are at least two rather different ways of doing this.&lt;/p&gt;
+
+&lt;h2 id="how-useful-is-middleware"&gt;How Useful Is Middleware?&lt;/h2&gt;
+
+&lt;p&gt;Other than the specific technical details of the interface, the only question left is the one from Taylor:&lt;/p&gt;
+
+&lt;blockquote class="twitter-tweet" data-lang="en"&gt;&lt;p lang="en" dir="ltr"&gt;IMO it remains to be demonstrated that sharing &amp;quot;generic&amp;quot; middleware saves more than about 5 min of dev time to begin with. &lt;a href="https://twitter.com/hashtag/psr7?src=hash"&gt;#psr7&lt;/a&gt;&lt;/p&gt;&amp;mdash; Taylor Otwell (@taylorotwell) &lt;a href="https://twitter.com/taylorotwell/status/734049190460817408"&gt;May 21, 2016&lt;/a&gt;&lt;/blockquote&gt;
+&lt;script async="" src="//platform.twitter.com/widgets.js" charset="utf-8"&gt;&lt;/script&gt;
+
+&lt;p&gt;The assertion that middleware is "only five minutes of work" is quite off, and the idea that it is unproven is just not accurate. Middleware has been insanely useful in many other languages. I've used it in Ruby and Go extensively, and I'm excited to see it come to PHP in a useful way.&lt;/p&gt;
+
+&lt;p&gt;Chatting with Taylor the idea of "middleware is only five minutes of work" is based on the idea that there is a single, generic, framework agnostic package for whatever needs to be done. Now, I'm excited to hear Laravelfolk suggest this because normally I'm wanting those people to think this way. In the past I've &lt;a href="https://philsturgeon.uk/php/2014/01/02/the-tribal-framework-mindset/"&gt;begged people to build framework agnostic code&lt;/a&gt; instead of tying it to Laravel.&lt;/p&gt;
+
+&lt;p&gt;Even &lt;em&gt;if&lt;/em&gt; we can rely on there being a single, generic, framework agnostic package for literally anything me might want to build into our middleware, the idea that it would only be five minutes of work is still just not.&lt;/p&gt;
+
+&lt;p&gt;Looking at one of the most simple StackPHP middlewares:&lt;/p&gt;
+
+&lt;pre class="highlight php"&gt;&lt;code&gt;&lt;span class="cp"&gt;&amp;lt;?php&lt;/span&gt; &lt;span class="k"&gt;namespace&lt;/span&gt; &lt;span class="nx"&gt;Alsar\Stack&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+
+&lt;span class="k"&gt;use&lt;/span&gt; &lt;span class="nx"&gt;Symfony\Component\HttpKernel\HttpKernelInterface&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="k"&gt;use&lt;/span&gt; &lt;span class="nx"&gt;Symfony\Component\HttpFoundation\Request&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="k"&gt;use&lt;/span&gt; &lt;span class="nx"&gt;Symfony\Component\HttpFoundation\Response&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+
+&lt;span class="k"&gt;class&lt;/span&gt; &lt;span class="nc"&gt;IpRestrict&lt;/span&gt; &lt;span class="k"&gt;implements&lt;/span&gt; &lt;span class="nx"&gt;HttpKernelInterface&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="sd"&gt;/**
+     * @var HttpKernelInterface
+     */&lt;/span&gt;
+    &lt;span class="k"&gt;private&lt;/span&gt; &lt;span class="nv"&gt;$app&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+
+    &lt;span class="sd"&gt;/**
+     * @var array
+     */&lt;/span&gt;
+    &lt;span class="k"&gt;private&lt;/span&gt; &lt;span class="nv"&gt;$allowedIps&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+
+    &lt;span class="sd"&gt;/**
+     * @param HttpKernelInterface $app
+     * @param array               $allowedIps
+     */&lt;/span&gt;
+    &lt;span class="k"&gt;public&lt;/span&gt; &lt;span class="k"&gt;function&lt;/span&gt; &lt;span class="nf"&gt;__construct&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;
+      &lt;span class="nx"&gt;HttpKernelInterface&lt;/span&gt; &lt;span class="nv"&gt;$app&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+      &lt;span class="k"&gt;array&lt;/span&gt; &lt;span class="nv"&gt;$allowedIps&lt;/span&gt;
+    &lt;span class="p"&gt;)&lt;/span&gt;
+    &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="nv"&gt;$this&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="na"&gt;app&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nv"&gt;$app&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+        &lt;span class="nv"&gt;$this&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="na"&gt;allowedIps&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nv"&gt;$allowedIps&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+
+    &lt;span class="sd"&gt;/**
+     * {@inheritdoc}
+     */&lt;/span&gt;
+    &lt;span class="k"&gt;public&lt;/span&gt; &lt;span class="k"&gt;function&lt;/span&gt; &lt;span class="nf"&gt;handle&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;
+      &lt;span class="nx"&gt;Request&lt;/span&gt; &lt;span class="nv"&gt;$request&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+      &lt;span class="nv"&gt;$type&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nx"&gt;self&lt;/span&gt;&lt;span class="o"&gt;::&lt;/span&gt;&lt;span class="na"&gt;MASTER_REQUEST&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+      &lt;span class="nv"&gt;$catch&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="kc"&gt;true&lt;/span&gt;
+    &lt;span class="p"&gt;)&lt;/span&gt;
+    &lt;span class="p"&gt;{&lt;/span&gt;
+        &lt;span class="nv"&gt;$ip&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nv"&gt;$request&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="na"&gt;getClientIp&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;
+        &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;!&lt;/span&gt;&lt;span class="nb"&gt;in_array&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;$ip&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="nv"&gt;$this&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="na"&gt;allowedIps&lt;/span&gt;&lt;span class="p"&gt;))&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+            &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="k"&gt;new&lt;/span&gt; &lt;span class="nx"&gt;Response&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;
+              &lt;span class="nb"&gt;sprintf&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s1"&gt;'IP %s is not allowed.'&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="nv"&gt;$ip&lt;/span&gt;&lt;span class="p"&gt;),&lt;/span&gt;
+              &lt;span class="mi"&gt;403&lt;/span&gt;
+            &lt;span class="p"&gt;);&lt;/span&gt;
+        &lt;span class="p"&gt;}&lt;/span&gt;
+        &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="nv"&gt;$this&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="na"&gt;app&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="na"&gt;handle&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;$request&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="nv"&gt;$type&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="nv"&gt;$catch&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;If you can write that code, with dependency injection, docblocks, find the correct HTTP status code (remembering not to use &lt;code&gt;401&lt;/code&gt; as so many people incorrectly do) and write the unit tests for it in less than five minutes you're an absolute champion.&lt;/p&gt;
+
+&lt;p&gt;Even &lt;em&gt;if&lt;/em&gt; you're an absolute champion, the idea that you &lt;em&gt;should&lt;/em&gt; need to write this &amp;lt; 5 minutes of code is odd.&lt;/p&gt;
+
+&lt;p&gt;Most middleware implementations offer the ability to pile up a bunch of classes containing the handlers, and it'll run through them in order:&lt;/p&gt;
+
+&lt;pre class="highlight php"&gt;&lt;code&gt;&lt;span class="cp"&gt;&amp;lt;?php&lt;/span&gt;
+
+&lt;span class="nx"&gt;Equip\Application&lt;/span&gt;&lt;span class="o"&gt;::&lt;/span&gt;&lt;span class="na"&gt;build&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;  
+&lt;span class="c1"&gt;// ...
+&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="na"&gt;setMiddleware&lt;/span&gt;&lt;span class="p"&gt;([&lt;/span&gt;
+    &lt;span class="nx"&gt;Relay\Middleware\ResponseSender&lt;/span&gt;&lt;span class="o"&gt;::&lt;/span&gt;&lt;span class="na"&gt;class&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+    &lt;span class="nx"&gt;Equip\Handler\ExceptionHandler&lt;/span&gt;&lt;span class="o"&gt;::&lt;/span&gt;&lt;span class="na"&gt;class&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+    &lt;span class="nx"&gt;Equip\Handler\DispatchHandler&lt;/span&gt;&lt;span class="o"&gt;::&lt;/span&gt;&lt;span class="na"&gt;class&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+    &lt;span class="c1"&gt;// ...
+&lt;/span&gt;    &lt;span class="nx"&gt;Equip\Handler\ActionHandler&lt;/span&gt;&lt;span class="o"&gt;::&lt;/span&gt;&lt;span class="na"&gt;class&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;span class="p"&gt;])&lt;/span&gt;
+&lt;span class="c1"&gt;// ...
+&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="na"&gt;run&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;&lt;em&gt;Example taken from &lt;a href="http://equip.github.io/"&gt;Equip&lt;/a&gt;, a little middleware implementation Woody is working on.&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;Would you rather reference a class or get involved with writing your own handlers every single time, for each application?&lt;/p&gt;
+
+&lt;p&gt;I know I'd rather not. I'd rather be out on my bike or in the pub! :D&lt;/p&gt;
+
+&lt;h2 id="summary"&gt;Summary&lt;/h2&gt;
+
+&lt;p&gt;HTTP Middleware is awesome. It lets frameworks do far less, it lets people distribute logic in a way often unseen popularly in PHP, it lets more of your application be reusable, and it lets PHP catch up with other popular languages used to build stuff on the web.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href="http://www.php-fig.org/psr/psr-7/"&gt;PSR-7&lt;/a&gt; was a great step towards this goal, but we need another PSR to get the whole way there.&lt;/p&gt;
+
+</content>
+  </entry>
+  <entry>
+    <title>PUT vs PATCH vs JSON-PATCH</title>
+    <link rel="alternate" href="https://philsturgeon.uk/api/2016/05/03/put-vs-patch-vs-json-patch/"/>
+    <id>https://philsturgeon.uk/api/2016/05/03/put-vs-patch-vs-json-patch/</id>
+    <published>2016-05-03T04:21:00+02:00</published>
+    <updated>2016-05-18T21:43:25+02:00</updated>
+    <summary type="html">A question that is asked with increasing regularity in the APIs You Won't Hate Slack Group is one which has been asked for years, but does not always have a good answer. The question is:</summary>
+    <content type="html">&lt;p&gt;A question that is asked with increasing regularity in the &lt;a href="https://slack.apisyouwonthate.com/"&gt;APIs You Won't Hate Slack Group&lt;/a&gt; is one which has been asked for years, but does not always have a good answer. The question is:&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;What is the different between PUT and PATCH, and when do I use them? And WTF is JSON-PATCH?&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;To start off, &lt;code&gt;PUT&lt;/code&gt; and &lt;code&gt;PATCH&lt;/code&gt; are two different HTTP methods, which are both commonly used in REST APIs. For people who think of REST APIs as only being CRUD (Create, Read, Update, Delete) there can be confusion over trying to work out which one is "best". People have preferences, people argue, and really the conversation is rarely had in a reasonable way.&lt;/p&gt;
+
+&lt;p&gt;You can totally have both &lt;code&gt;PUT&lt;/code&gt; and &lt;code&gt;PATCH&lt;/code&gt; in your API, and no, they should not be an alias of each other (looking at you Rails). Quite simply, they do different things. The RFC for &lt;code&gt;PATCH&lt;/code&gt; (&lt;a href="https://tools.ietf.org/html/rfc5789"&gt;RFC 5789&lt;/a&gt;) actually explains the difference rather elegantly in its abstract:&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;The existing HTTP PUT method only allows a complete replacement of a document. This proposal adds a new HTTP method, PATCH, to modify an existing HTTP resource.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;One is for when you know &lt;em&gt;all&lt;/em&gt; the answers, and the other is for updating little bits at a time. Some consider this a performance benefit (sending less stuff is quicker than sending lots of stuff), but there are some more racy benefits than that.&lt;/p&gt;
+
+&lt;h2 id="conflicts"&gt;Conflicts&lt;/h2&gt;
+
+&lt;p&gt;Think about a resource that has two fields, &lt;code&gt;field1&lt;/code&gt; and &lt;code&gt;field2&lt;/code&gt;. Two different requests (Request A and (Request B) try to update one of these field values as a &lt;code&gt;PUT&lt;/code&gt; after getting the initial value of the resource with a &lt;code&gt;GET&lt;/code&gt; request. Both &lt;code&gt;field1&lt;/code&gt; and &lt;code&gt;field2&lt;/code&gt; are &lt;code&gt;false&lt;/code&gt; in response of the &lt;code&gt;GET&lt;/code&gt; request.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Request A&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;Updating &lt;code&gt;field1&lt;/code&gt; to be &lt;code&gt;true&lt;/code&gt;.&lt;/p&gt;
+
+&lt;pre class="highlight http"&gt;&lt;code&gt;&lt;span class="err"&gt;PUT /foos/123
+
+{
+  "field1": true,
+  "field2": false
+}
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;&lt;strong&gt;Request B&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;Updating &lt;code&gt;field2&lt;/code&gt; to be &lt;code&gt;true&lt;/code&gt;.&lt;/p&gt;
+
+&lt;pre class="highlight plaintext"&gt;&lt;code&gt;PUT /foos/123
+
+{
+  "field1": false,
+  "field2": true
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;If both fields start &lt;code&gt;false&lt;/code&gt;, and each request only intends to update one field, little do they know they are clobbering the results and essentially reverting them each time. Instead of ending up with both values being &lt;code&gt;true&lt;/code&gt;, you'll simply have whatever the last request was, which is going to be &lt;code&gt;"field1": false&lt;/code&gt; and &lt;code&gt;"field2": true&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;To some this is a feature, but others consider it a bug because if they only want to update one field, why do they need to send everything?&lt;/p&gt;
+
+&lt;p&gt;These people decide to just send the relevant fields they want to change, which is a flagrant misuse of how &lt;code&gt;PUT&lt;/code&gt; is supposed to work and leads to a lot of problems.&lt;/p&gt;
+
+&lt;h2 id="expectations"&gt;Expectations&lt;/h2&gt;
+
+&lt;p&gt;When building an API, you and your coworkers are not the only people that need to have fair expectations of how things are going to work. Other systems, such as EmberJS for example, are going to have some expectations of how a &lt;code&gt;PUT&lt;/code&gt; request is going to work, and if you start going against the grain and making &lt;code&gt;PUT&lt;/code&gt; send partial updates, you're going to have a bad time.&lt;/p&gt;
+
+&lt;p&gt;We had a case at work, where an EmberJS application only had some models representing existing resources in the API, that were populated locally from partial data. They wanted to change the value of one field in this model and save the resource back to the API.&lt;/p&gt;
+
+&lt;p&gt;When they saved, EmberData would notice it was a &lt;code&gt;PUT&lt;/code&gt; and try to send as much data as it could. As it only had some of the field values, it would end up sending a body with every unknown field as &lt;code&gt;null&lt;/code&gt;, which in turn was emptying values out of the database, and/or triggering validation errors for fields that it didn't want emptied.&lt;/p&gt;
+
+&lt;h2 id="patching-the-problem"&gt;PATCHing the Problem&lt;/h2&gt;
+
+&lt;p&gt;Something that helped a lot at work, was implementing &lt;code&gt;PATCH&lt;/code&gt;. We can now simply send the fields we intend to update, and anything else is left alone.&lt;/p&gt;
+
+&lt;p&gt;Let's just assume we're using &lt;a href="http://jsonapi.org/"&gt;JSON-API&lt;/a&gt; and building something for a carpooling company, like &lt;a href="https://ride.com/"&gt;Ride&lt;/a&gt;. We want to be able to "start" a trip, by changing the status from &lt;code&gt;"pending"&lt;/code&gt; to &lt;code&gt;"in_progress"&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;In v1.0, we used to use &lt;code&gt;PUT&lt;/code&gt;. It worked something like this:&lt;/p&gt;
+
+&lt;pre class="highlight plaintext"&gt;&lt;code&gt;PUT /trips/123
+
+{
+  "data": [{
+    "type": "trips",
+    "id": "123",
+    "attributes": {
+      "status": "in_progress",
+      "started_at": null,
+      "finished_at": null
+    }
+    "relationships": {
+      "driver": {
+        "data": { "type": "users", "id": "999" }
+      }
+    }
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Here we've changed the &lt;code&gt;status&lt;/code&gt; from whatever it was to &lt;code&gt;in_progress&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;strong&gt;Sidenote:&lt;/strong&gt; Am I meant to update the started_at myself or let the API do it? Who knows!&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;The main problem here is back to the conflict example above. If somebody else was changing another value like who the driver is, and accidentally changed the &lt;code&gt;status&lt;/code&gt;, back to &lt;code&gt;pending&lt;/code&gt; then they'd get an error message saying "The trip has already started, it cannot go back to pending" and they'd be thinking "I didn't even know it had started, I just wanted Gary to drive today." and everyone just gets confused.&lt;/p&gt;
+
+&lt;p&gt;The same request as a &lt;code&gt;PATCH&lt;/code&gt; could look something like this:&lt;/p&gt;
+
+&lt;pre class="highlight plaintext"&gt;&lt;code&gt;PUT /trips/123
+
+{
+  "data": [{
+    "type": "trips",
+    "id": "123",
+    "attributes": {
+      "status": "in_progress"
+    }
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This has solved the problem of not accidentally clobbering other values, as we are no longer sending things along for the sake of it. Only the attributes we send should be validated, and anything missing should be ignored entirely.&lt;/p&gt;
+
+&lt;h2 id="wellactually"&gt;WellActually&lt;/h2&gt;
+
+&lt;p&gt;In RFC 5789 (the RFC for the &lt;code&gt;PATCH&lt;/code&gt; method), the example shows things working like so:&lt;/p&gt;
+
+&lt;pre class="highlight plaintext"&gt;&lt;code&gt;PATCH /file.txt HTTP/1.1
+Host: www.example.com
+Content-Type: application/example
+If-Match: "e0023aa4e"
+Content-Length: 100
+
+[description of changes]
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This &lt;code&gt;[description of changes]&lt;/code&gt; is considered by some to be a sequence of operations to be done to the resource in question, manifesting itself in a list of JSON objects like this:&lt;/p&gt;
+
+&lt;pre class="highlight plaintext"&gt;&lt;code&gt;PATCH /my/data HTTP/1.1
+Host: example.org
+Content-Length: 326
+Content-Type: application/json-patch+json
+If-Match: "abc123"
+
+[
+  { "op": "test", "path": "/a/b/c", "value": "foo" },
+  { "op": "remove", "path": "/a/b/c" },
+  { "op": "add", "path": "/a/b/c", "value": [ "foo", "bar" ] },
+  { "op": "replace", "path": "/a/b/c", "value": 42 },
+  { "op": "move", "from": "/a/b/c", "path": "/a/b/d" },
+  { "op": "copy", "from": "/a/b/d", "path": "/a/b/e" }
+]
+
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This example is taken from &lt;a href="https://tools.ietf.org/html/rfc6902"&gt;RFC 6902&lt;/a&gt;, which builds on top of the &lt;code&gt;PATCH&lt;/code&gt; method itself, to provide a standardised way of doing it. It's known as &lt;a href="http://jsonpatch.com/"&gt;JSON PATCH&lt;/a&gt;, and finding information about it is almost as sparse as the website.&lt;/p&gt;
+
+&lt;p&gt;There are a few articles around, but unfortunately the #WellActually starts to get pretty heavy.&lt;/p&gt;
+
+&lt;p&gt;One of the most prolific articles out there on using PATCH is from &lt;a href="http://williamdurand.fr/2014/02/14/please-do-not-patch-like-an-idiot/"&gt;William Durand&lt;/a&gt;. It's a great technical article, but the assertions of "do this really complicated thing which you might not need or you're Doing It Wrong" do rub me up the wrong way a bit. Read this article, consider implementing it, and if you don't want it, don't do it. You're fine.&lt;/p&gt;
+
+&lt;p&gt;Yes, &lt;a href="https://www.mnot.net/blog/2012/09/05/patch"&gt;JSON PATCH is lovely&lt;/a&gt;, and you might need it for your API, but it also might be a complication you don't need to worry about at this point.&lt;/p&gt;
+
+&lt;p&gt;While not the end all or be all of anything, &lt;a href="http://jsonapi.org"&gt;JSON-API&lt;/a&gt; used to recommend using JSON PATCH, but ended up settling on the plain "just send what you need" approach to &lt;code&gt;PATCH&lt;/code&gt; which a lot of other people settle for. Something very similar to this "just send what you need" approach is being worked on as &lt;em&gt;yet another&lt;/em&gt; RFC: &lt;a href="https://tools.ietf.org/html/rfc7396"&gt;RFC 7396&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Remember, one of the best things about HTTP-based APIs is the ability to respond to &lt;code&gt;Content-Type&lt;/code&gt; headers. You can work with plain-old JSON in your &lt;code&gt;PATCH&lt;/code&gt; requests for now, and in the future add JSON PATCH support if you find that you need it.&lt;/p&gt;
+
+&lt;p&gt;And you can keep &lt;code&gt;PUT&lt;/code&gt; in there too, if you like the idea of having idempotent saves. We don't use them for resources at Ride anymore, but they're pretty great for &lt;a href="/2016/01/04/http-rest-api-file-uploads/"&gt;file uploads&lt;/a&gt; which could fail and need idempotent retries.&lt;/p&gt;
+</content>
+  </entry>
+  <entry>
+    <title>Loudly Ignoring How CoCs Work</title>
+    <link rel="alternate" href="https://philsturgeon.uk/2016/03/02/loudly-ignoring-how-cocs-work/"/>
+    <id>https://philsturgeon.uk/2016/03/02/loudly-ignoring-how-cocs-work/</id>
+    <published>2016-03-02T04:23:00+01:00</published>
+    <updated>2016-05-18T22:08:12+02:00</updated>
+    <summary type="html">Paul Jones recently wrote an article called 
+An Object Lesson in Conduct Enforcement. The title starts off factually inaccurate, and it goes downhill from there.</summary>
+    <content type="html">&lt;p&gt;Paul Jones recently wrote an article called &lt;a href="http://paul-m-jones.com/archives/6224"&gt;
+An Object Lesson in Conduct Enforcement&lt;/a&gt;. The title starts off factually inaccurate, and it goes downhill from there.&lt;/p&gt;
+
+&lt;p&gt;Sadly Paul didn't ask either party if they wanted their names launched into the spotlight. Nobody has. I write this not to continue the dragging of their names through the mud, but to try and settle the points. Both original parties involved have approved this article, because I actually ask.&lt;/p&gt;
+
+&lt;p&gt;Full disclosure: I am acquainted with everyone involved in the article. I met Matt at SunshinePHP and we've had a bit of a banter. I recommended Samantha for the FIG Secretary role, and I'm well acquainted with Paul Jones, even though we don't get on. We produced the majority of &lt;a href="http://www.php-fig.org/psr/psr-4/"&gt;PSR-4&lt;/a&gt; together, and we've argued, both online and in-person, about everything from guns to styrofoam packaging (don't ask).&lt;/p&gt;
+
+&lt;p&gt;&lt;a href="/2013/07/25/great-battle-wrong-field/"&gt;I defended Paul amidst some awful and bizarre scandal&lt;/a&gt;, where somebody threatened to assault us. Whilst I'm certain that he isn't - as was accused - a rape apologist, the regularity in which he ends up looking exactly like a misogynist is absolutely &lt;em&gt;amazing&lt;/em&gt;. I personally think he has a confused world view, and has been through some things that make him incredibly paranoid. He's had enough "pitch-fork" mobs come at him that he thinks anyone showing any signs of "politically correct colours" is an extremist who's going to try and get him fired, or some "evil SJW hit squad".&lt;/p&gt;
+
+&lt;p&gt;I get it, really, but confusing extremists for the mainstream never does anyone any good, and that really does need to stop. This article hopes to unpick his arguments a little bit, to avoid others being confused by his factually inaccurate postings.&lt;/p&gt;
+
+&lt;p&gt;There had been a lot of hubbub about "the incident" since the conference, but when it came to the FIG it got extra ridiculous. An anonymous account posted. Go &lt;a href="https://groups.google.com/forum/#!msg/php-fig/K9KyPzCNmss/HIEJG7YPAgAJ"&gt;read the thread&lt;/a&gt;, go read &lt;a href="http://paul-m-jones.com/archives/6224"&gt;the Paul article&lt;/a&gt;, then come back here.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Especially in light of the recent Code Of Conduct discussions in PHP I find this selection very disheartening. Samantha was recently outed as saying some pretty offensive things to a fellow PHP conference-goer (http://matthewtrask.net/blog/My-Time-At-SunshinePHP/). She said to this first-time conference attendee: “fuck this guy” and “you need to fuck off back to the Shire”. Matthew is short, so this was a clear insult to his height, not to mention very rude. If a code of conduct was in place in PHP as it should be I can’t help but think Samantha would have at least needed a temporary ban.&lt;/p&gt;
+
+  &lt;p&gt;…&lt;/p&gt;
+
+  &lt;p&gt;Please take these concerns into consideration. In my honest opinion, the insulting of the conference goer alone (and that just within the past month!) is enough to disqualify Samantha from this position.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Ok, let's consider this for a second. The RFC mentioned is for PHP to &lt;a href="https://wiki.php.net/rfc/adopt-code-of-conduct"&gt;Adopt a Code of Conduct&lt;/a&gt; . Note that it &lt;em&gt;explicitly&lt;/em&gt; states the scope is for PHP internals (which covers core contributors, web team, documentation, etc.) Basically, the core PHP team, and nobody else.&lt;/p&gt;
+
+&lt;p&gt;That's right. &lt;strong&gt;Nobody else.&lt;/strong&gt; Not the PHP-FIG, not any sort of conference, not me on Twitter: even though I am technically a PHP contributor with a &lt;code&gt;@php.net&lt;/code&gt; email address.&lt;/p&gt;
+
+&lt;p&gt;"But Phil, that's just your interpretation."&lt;/p&gt;
+
+&lt;p&gt;Is it hell. I'm going to shove this image of the RFC in so it's impossible to miss, and you all need to read all of the words it says.&lt;/p&gt;
+
+&lt;p&gt;&lt;img alt="The part of the PHP CoC RFC where it explicitly says it has no effect on conference attendees who are not part of PHP internals. Like Samantha." src="/images/article_images/2016-03-02-loudly-ignoring-how-cocs-work/rfc-caviats-explained.png" /&gt;&lt;/p&gt;
+
+&lt;p&gt;So this anonymous poster is way off from the start. The proposed CoC has nothing to do with the parties involved at the conference. I bring this up not to defend "the accused", but because this is confusion that has happened over and over and over. No amount of polite reminding, or holding a megaphone to peoples ears and saying "THATS NOT HOW THIS WORKS" seems to help them notice.&lt;/p&gt;
+
+&lt;p&gt;This is also the root of my problem with Paul's title:&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;An Object Lesson in Conduct Enforcement&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Enforcing which Code of Conduct? We've established that the proposed PHP CoC has nothing to do with the conference as far as Matt or Samantha are concerned.&lt;/p&gt;
+
+&lt;p&gt;Maybe the conference CoC? Like somebody says in the FIG thread, isn't it a little weird that organizer only posts about men doing shit in &lt;a href="http://www.geekyboy.com/archives/1179"&gt;his article&lt;/a&gt;, and doesn't post about this awful infraction by Samantha??!!?!1&lt;/p&gt;
+
+&lt;p&gt;Well, no. No conspiracy here. A CoC works by giving a reporting structure to victims. If something happens, or you're worried something is going to happen, you can ask for help. If Matt had reported this to the organizer, the organizer would have known about it, and if required he could have mediated towards a resolution.&lt;/p&gt;
+
+&lt;p&gt;Matt did not think the conference CoC applied to the random after-conference events, so he didn't report it. Rightly or wrongly, there may not have been a CoC to enforce at this unorganized off-the-cuff friendly dinner, and even if there was, if something is not reported then it cannot be enforced. It would have been tough to enforce this so long after the conference ended even if the CoC was still relevant, which is a whole other problem that isn't being discussed in this article.&lt;/p&gt;
+
+&lt;p&gt;As such, there is no temporary ban for Samantha, because:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;The conference CoC did not apply&lt;/li&gt;
+  &lt;li&gt;She is not a PHP internals contributor&lt;/li&gt;
+  &lt;li&gt;Even if she was she is not representing the PHP internals project&lt;/li&gt;
+  &lt;li&gt;Nobody reported a violation&lt;/li&gt;
+  &lt;li&gt;The PHP-FIG is not PHP internals&lt;/li&gt;
+  &lt;li&gt;What would she be temp banned from&lt;/li&gt;
+  &lt;li&gt;What is happening&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Onto Paul's comments.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;The replies to Concerned PHP User are universally of the form “Samantha is my friend, and I know personally she didn’t mean anything by it; this happened after the conference, so the Code of Conduct didn’t apply; and besides, she apologized, so that should be the end of it.”&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;That is 100% not what happened here. Somebody instead asked: we're not sure why this is being brought up here, it looks like they resolved it. People have differences all the time, and sometimes people say things they don't mean, and they apologize, and the world moves on. I've made some awfully bad jokes and other comments to people, and we've got past it.&lt;/p&gt;
+
+&lt;p&gt;When somebody says "Hey this is a big deal" and somebody says "Is it? It looks like they resolved it.", that does not constitute a defense of any sort, let alone a gender-based hypocritical defense.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;To be clear, these are all good people with good intentions. But would all these defenders of Samantha be so forgiving if a man of similar community standing had said similarly derogatory things to a woman who was a first-time conference attendee?&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;If the man apologized and the woman accepted it then great. Quite often you see some really half-arsed pathetic apologies that actually offend further, and people normally don't swallow those down as nicely. Regardless of gender, only muppets would continue to seek blood after a genuine apology.&lt;/p&gt;
+
+&lt;p&gt;And yes, men try and get women fired all the time when they talk about things they don't like publicly. They're as out of line as anyone else who takes dirty laundry to an employer.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;ul&gt;
+    &lt;li&gt;Would they not see this as somehow indicative that the man had a toxic personality, was misogynist/prejudiced/bigoted/privileged, or that the behavior was a symptom of a larger structural issue of some sort?&lt;/li&gt;
+  &lt;/ul&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Yeah if somebody does toxic things over and over again then they're probably a toxic person. One infraction doesn't make you satan immediately, which is something pro-CoC people have been trying to explain to paranoid misunderstanders for a long time now.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;ul&gt;
+    &lt;li&gt;Would the apology have become a starting point (instead of an ending point) leading to further demands that the man continue to prostrate himself before the mob of public opinion?&lt;/li&gt;
+  &lt;/ul&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;It certainly shouldn't, no. Regardless of what genders are involved.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;ul&gt;
+    &lt;li&gt;Would they not have cried out that "this is what keeps women from attending conferences!" and demanded further action against the man?&lt;/li&gt;
+  &lt;/ul&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;This is where the "shoe on the other foot" argument gets a bit weak.&lt;/p&gt;
+
+&lt;p&gt;Men &lt;em&gt;aren't&lt;/em&gt; being kept from conferences. Men are still the huge majority. Going by my anecdotal evidence, men are about 90% of conference attendees in USA PHP land. It's surprisingly more even in JS and Ruby but hey, I that's another article.&lt;/p&gt;
+
+&lt;p&gt;So no, just because somebody was unjustifiably mean to Matt, it does not mean that we get to invalidate the entire argument of "This is what keeps women from conferences."&lt;/p&gt;
+
+&lt;p&gt;Do you want to know what &lt;em&gt;does&lt;/em&gt; keep women from conferences? The &lt;em&gt;&lt;a href="http://www.geekyboy.com/archives/1179"&gt;other five incidents at this same conference&lt;/a&gt;&lt;/em&gt; that you're not talking about, where female attendees were offered hotel room massages, had their tits made the center of a conversation, groped and forcibly kissed in a hot-tub (check under "The Ugly").&lt;/p&gt;
+
+&lt;p&gt;But no, silly me, let's keep focusing on potential mens rights violations instead.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;ul&gt;
+    &lt;li&gt;Would there not have been concerned emails sent to the man's employer, asking if that's really the kind of person they wanted representing their company, one who would be so rude and dismissive to a fellow community member, especially a woman?&lt;/li&gt;
+  &lt;/ul&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;I know this stuff &lt;em&gt;does&lt;/em&gt; happen, and one of the things we discussed over and over on &lt;a href="https://phptownhall.com/episode-48-code-of-conduct/"&gt;PHP Town Hall: Episode 48 - Code of Conduct&lt;/a&gt; is how destructive a pitch-fork mob is.&lt;/p&gt;
+
+&lt;p&gt;The problem is, that if you confuse literally anyone who happens to be pro-CoC with &lt;em&gt;everyone&lt;/em&gt; else who also happens to be pro-CoC, and you don't like how some of them do it, then you're muddying the waters on the argument.&lt;/p&gt;
+
+&lt;p&gt;Some people are jerks. Some people are awful. Some people go way too far. Some people try and get people fired when they make mistakes. Nobody should do this. Regardless of their chromosome configuration.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;I opine that if the event were effectively identical, but with the sexes switched, there would be a very different discussion going on now. If the roles had been reversed, an apology would not have been sufficent. If a &lt;em&gt;man&lt;/em&gt; of Samantha's standing had said the exact same things to a &lt;em&gt;woman&lt;/em&gt; who was a newcomer to the conference, there's no way the issue would be left at that. It would be taken as yet another sign of the privilege that men have in the PHP community, that they think they can treat a woman that way. He'd have been vilified, shamed, hounded, and otherwise had his life made miserable on Twitter and elsewhere. Someone would have called his employer and asked if that was really the kind of person they want representing their company.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;The situations cannot be identical just by switching their jiggly bits. There's more to it than that.&lt;/p&gt;
+
+&lt;p&gt;Firstly, if roles were reversed exactly, then the second Matt suggested there was a problem, women would have come flying in from the wings to call him a liar, a social justice warrior, and a manipulator. This is par for the course when not-men point out problems, when they even feel &lt;a href="http://www.sazzy.co.uk/speaking-up/"&gt;comfortable enough to do so&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Secondly, trying to use this one instance to suggest that men &lt;em&gt;don't&lt;/em&gt; have privilege in this community is odd. This entire conversation disproves that.&lt;/p&gt;
+
+&lt;p&gt;Regardless of that, wouldn't it be great if there was a CoC that protected Matt?&lt;/p&gt;
+
+&lt;p&gt;I'm not sure if this conference CoC could be extended to cover the evening activities, or if it does already, but it would be cool if more people were covered by a CoC in more instances. Right?&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;To be clear, I am &lt;em&gt;not&lt;/em&gt; calling for Samantha to be fired, denied a position, or otherwise have her life made miserable.  I &lt;em&gt;am&lt;/em&gt; pointing out that allowances are being made based on who the offender and offended are.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Lol, good. Why would you want to call for anyone to be fired?&lt;/p&gt;
+
+&lt;p&gt;I cannot fathom what allowances, exactly, you think have been made for her?&lt;/p&gt;
+
+&lt;p&gt;What has she "got away with" that the FIG would otherwise "punish"?&lt;/p&gt;
+
+&lt;p&gt;Also, since when has the FIG "punished" anyone? The FIG hasn't even followed its own bylaws and kicked out inactive voting members, so why are the FIG suddenly going to start "punishing" people for things that have absolutely zero relevance to the FIG?&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;This goes back to something I've been saying about Social-Justice-derived Codes of Conduct in general, and the proposed Code of Conduct for PHP in specific, for a long time now: the "rules" apply differently to different people, epsecially depending on who is doing the enforcing. Some rule-breakers will be forgiven their transgressions, and others will be prosecuted as much as possible, merely by fact of who they are and what they represent. My shorthand for that attitude is "That's just Joe being Joe!" – Joe's actions, when performed by George, will result in banishment for George and forgiveness for Joe. There's always some reason that Joe can be forgiven that will never apply to George.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;When. What. Where has this happened. What are you talking about.&lt;/p&gt;
+
+&lt;p&gt;No Paul, this does not "go back to" anything. This situation is being used (I'll be polite and say conveniently, some might say divisively) to try and prove your &lt;a href="http://paul-m-jones.com/archives/6220"&gt;earlier points&lt;/a&gt;, where you &lt;a href="http://paul-m-jones.com/archives/6214"&gt;showcase a myriad of other confusions&lt;/a&gt; about code of conducts in general.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;So &lt;em&gt;either&lt;/em&gt; you are in favor of all people treating others with equal respect and dignity at all times, under a Code of Conduct or otherwise, &lt;em&gt;or&lt;/em&gt; you are in favor of some people being more equal than others and being given allowances based on who they are and what narrative they fit.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Yeah I'm into people following the rules of any CoC that apply to them, and being held accountable according to the rules of said CoC when they break them.&lt;/p&gt;
+
+&lt;p&gt;I will expect that to be the process regardless of the genders of participants. Luckily so far I have not seen this process be ignored, nor has Samantha been given any special allowances.&lt;/p&gt;
+
+&lt;p&gt;You don't get to invent your own scope for a CoC, then berate the organization for not living up to it. The SunshinePHP CoC and the PHP RFC explain their scope quite clearly, so ignoring it and complaining about it doesn't make any sense.&lt;/p&gt;
+
+&lt;p&gt;So again, to state quite clearly, this is not hypocritical: You just literally have no idea how CoCs work, and you're conflating two arbitrary things so it &lt;em&gt;seems&lt;/em&gt; hypocritical.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;If you would have punished a man for Samantha's behavior, you should punish Samantha too; if you do not punish Samantha for her behavior this time, you should not punish anyone else in the future for any behavior resembling hers.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Here we go again. Who is "you" to "punish" anyone? Why is "punishing" the goal?&lt;/p&gt;
+
+&lt;p&gt;The FIG has no bylaws or process in place for what to do when somebody is mean, but it's a good reminder that the FIG should start work on a CoC.&lt;/p&gt;
+
+&lt;p&gt;As for "punishing" Samantha, something that happened long after a conference is nothing to do with the FIG. The fact that the two of them seem to have resolved it make it seem even less likely that further action is required.&lt;/p&gt;
+
+&lt;p&gt;A friend wrote this, which is bang on the money:&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;CoC is not instead of expecting humans to try and settle situations on their own when they feel empowered to do so, it's a safety net for when they can't be reasonably expected to - this is obviously not that situation given that Matt and Samantha have stated clearly that they were capable and have in fact settled the situation positively without outside interference.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;There is no secret police to send to their house.&lt;/p&gt;
+
+&lt;p&gt;There is no "star chamber" to send them to.&lt;/p&gt;
+
+&lt;p&gt;Back to Paul:&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Finally, a side note. One commenter in the PHP-FIG thread opined: “If a code of conduct was in place, for PHP internals, then that code of conduct would have no bearing here. It is entirely a different organisation.”&lt;/p&gt;
+
+  &lt;p&gt;There is plenty of reason to believe that it would apply here, and at any time PHP community members gather together or speak with each other, regardless of location or channel.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Plenty of reason to believe this to be true, other than the RFC literally saying THAT IT'S NOT TRUE WHAT WORLD DO WE LIVE IN WHERE LEFT IS PURPLE AND UP IS CHEESE.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Further, if PHP as-a-project ever adopts a Code of Conduct, that code will metastasize (through voluntary action or otherwise) across the entire PHP community. PHP iser groups, projects, conferences, etc., will adopt it merely because it is “The PHP Code Of Conduct.”&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Ok, this is a good thing wrapped in slippery slope packaging.&lt;/p&gt;
+
+&lt;p&gt;If PHP itself says "We'd rather not have our contributors run about being sexist/transphobic/racist dochenozzels" then… oh no The PHP League might do the same?!?!?! Well too late, &lt;a href="https://github.com/thephpleague/skeleton/blob/master/CONDUCT.md"&gt;we already do&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Other projects might also ask their contributors to not bully and condescend their contributors, and if people ignore those &lt;code&gt;CONDUCT.md&lt;/code&gt; warnings, they might get… *gulp* &lt;em&gt;a personal private warning to stop!!!&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;What &lt;em&gt;is&lt;/em&gt; the world coming to? Where &lt;em&gt;are&lt;/em&gt; our freedoms going? What &lt;em&gt;will&lt;/em&gt; be left for our children in this new world, where upsetting somebody so much they feel the need to report it might result in you &lt;em&gt;being asked to stop doing that thing?!&lt;/em&gt;&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;So don’t believe for a moment that a PHP-project-level Code of Conduct won’t be applied to you in some fashion. It will. Prepare yourself accordingly, and speak out against it if you can.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Throw a bald eagle in the end there while you're at it?&lt;/p&gt;
+
+&lt;p&gt;Can we please drop this incident instead of trying to fit it into some anti-CoC narrative? Why the hell are we talking about a problem that has been solved, instead of talking about the verbal and sexual harassment of multiple attendees? Why is &lt;em&gt;this&lt;/em&gt; being ignored so we can talk about a single offensive comment which has been apologized for &lt;em&gt;and accepted&lt;/em&gt; already?&lt;/p&gt;
+
+&lt;p&gt;Both parties are tired of this, Samantha apologized to Matt, he has accepted it (which is the important part) and he even updated his original article saying that he is sick of his blog being used as evidence to attack people. Matt is sick of this. Samantha is sick of this. Everyone else is sick of this.&lt;/p&gt;
+
+&lt;p&gt;Beyond this we're all so bored of talking about CoC's. The only way out of this quagmire of CoC posts is to focus on facts, instead of just making things up and freaking out about them.&lt;/p&gt;
+</content>
+  </entry>
+  <entry>
+    <title>PHP Town Hall: Code of Conduct</title>
+    <link rel="alternate" href="https://philsturgeon.uk/2016/02/15/episode-48-code-of-conduct/"/>
+    <id>https://philsturgeon.uk/2016/02/15/episode-48-code-of-conduct/</id>
+    <published>2016-02-15T19:14:50+01:00</published>
+    <updated>2016-05-18T21:43:25+02:00</updated>
+    <summary type="html">The other week I wrote an article called Why is Everyone Outraged?, where I explained how the media often manufactures outrage, making it seem worse out there than it really is. This outrage narrative leads some people to think the world is being taken over by evil SJWs, whilst that is generally not at all the case.</summary>
+    <content type="html">&lt;p&gt;The other week I wrote an article called &lt;a href="/2016/01/27/why-is-everyone-outraged/"&gt;Why is Everyone Outraged?&lt;/a&gt;, where I explained how the media often manufactures outrage, making it seem worse out there than it really is. This outrage narrative leads some people to think the world is being taken over by evil SJWs, whilst that is generally not at all the case.&lt;/p&gt;
+
+&lt;p&gt;Basically I called for people to consider thinking objectively about different topics, and to stop shouting "No it's fine" when people talk about problems they don't understand. I also warned about the dangers of using phrases like "Some people are just spring-loaded to offended." to just dismiss anything and everything that you don't personally see as an issue.&lt;/p&gt;
+
+&lt;p&gt;&lt;img alt="Legitimately the response to my last article from /r/php" src="/images/article_images/2016-02-15-episode-48-code-of-conduct/EVERYONE-IS-SO-OFFENDED.png" /&gt;&lt;/p&gt;
+
+&lt;p&gt;Unfortunately, /r/php flipped out. Not everyone sure, but the few people you expect, and quite a few more. Some were even using anonymous accounts to troll even harder, saying they felt unsafe to comment with their normal accounts because of the "evil SJWs".&lt;/p&gt;
+
+&lt;p&gt;One thread on the topic got to about 500 comments before I peaced out. Some of the 500 comments were just arbitrary insults, like calling me a fervent masturbator in desperate need of attention, some played the "No &lt;em&gt;you're&lt;/em&gt; the sexist" card, and obviously &lt;a href="https://wikipedia.org/wiki/Godwin's_law"&gt;Godwin's Law&lt;/a&gt; was cranked up to 11 almost immediately.&lt;/p&gt;
+
+&lt;p&gt;Most of the other comments were about the PHP Code of Conduct RFC. Sure, I was addressing a common silencing tactic that pops up when people try to talk about a CoC, but it seemed strange to discuss the CoC in depth, whilst not addressing anything in the actual article.&lt;/p&gt;
+
+&lt;p&gt;Their comments made it rather clear they'd not read the PHP CoC RFC, or were maybe even choosing to be ignorant about what it said. I couldn't tell you which, but the amount of FUD in there was amazingly strong.&lt;/p&gt;
+
+&lt;p&gt;The level of weird was pretty high too:&lt;/p&gt;
+
+&lt;p&gt;&lt;img alt="A supposed PHP core contributor, concerned they'd no longer be able to say obnoxious things about other contributors hard work, without *maybe* getting a warning from a mediator." src="/images/article_images/2016-02-15-episode-48-code-of-conduct/core-contributor-feedback-num-dicks.png" /&gt;&lt;/p&gt;
+
+&lt;p&gt;I ended up re-blocking Reddit in my /etc/hosts file and getting on with a lovely week in Colombia with my friends. When I got home we ended up recording a &lt;a href="http://phptownhall.com/"&gt;PHP Town Hall&lt;/a&gt; on the topic of Code of Conducts in general, and RE PHP, with user-group and meet-up organizer &lt;a href="https://twitter.com/miss_jwo"&gt;Jenny Wong&lt;/a&gt;.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;We cover a few things, from the intent of a Code of Conduct, explain it's reach is not as scary as many seem to think, outline a few things that a Code of Conduct does not try to do, and talk about some of the problems minorities have at conferences and online which could be simplified over time with a useful CoC.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;This is one of our best episodes yet. Even if you hate Phil and think he's turned into some sort of social justice warrior white knighting whatever, listen to this and see if the conversation is starting to make more sense to you.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;The goal here is to open a few minds, and bring people to the table so a useful conversation can be had, instead of the usual reaction to Code of Conducts which is immediate screaming into the keyboard, mashing out wall-o-text's about freedom of speech, and assuming people are only interested in inclusivity to impress women…&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;We can make our community a better place, and Jenny has a few tips on how you can help with that goal.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;iframe width="640" height="480" src="https://www.youtube.com/embed/HTeIi8dLGMU" frameborder="0" allowfullscreen=""&gt;&lt;/iframe&gt;
+
+&lt;p&gt;&lt;a href="https://phptownhall.com/episode-48-code-of-conduct/"&gt;Give that a listen&lt;/a&gt;. Maybe it can help a few people realize they are using baseless paranoia as a reason to fight against solutions to problems that minorities are continuously pointing out. Maybe it'll bring a few people back to the table.&lt;/p&gt;
+
+&lt;p&gt;It'll definitely get me shouted at again. Luckily, I'm used to it. :)&lt;/p&gt;
+
+&lt;p&gt;I still need to write about "Code of Conduct FUD" and "Why Opalgate is Not a Good Anti-CoC Defense".&lt;/p&gt;
+</content>
+  </entry>
+  <entry>
+    <title>Why Is Everyone Outraged?</title>
+    <link rel="alternate" href="https://philsturgeon.uk/2016/01/27/why-is-everyone-outraged/"/>
+    <id>https://philsturgeon.uk/2016/01/27/why-is-everyone-outraged/</id>
+    <published>2016-01-27T02:29:00+01:00</published>
+    <updated>2016-05-18T21:43:25+02:00</updated>
+    <summary type="html">There have been about twenty articles I want to write about equality in tech, and they all end up crossing over into one big mess. I'm going to start unpicking these articles into a series, and I want to start by asking this question.</summary>
+    <content type="html">&lt;p&gt;There have been about twenty articles I want to write about equality in tech, and they all end up crossing over into one big mess. I'm going to start unpicking these articles into a series, and I want to start by asking this question.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Is everyone &lt;strong&gt;really&lt;/strong&gt; offended?&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Something I hear a lot, from friends, news articles, tweets from prominent tech community members and everywhere else, is that everyone is always outraged. The world has become too politically correct. That millennials are whiners who should be embarrassed. Compared to what our grandfathers were doing - defending Europe from the Nazis or fighting in Vietnam - the average person today is a pathetic keyboard warrior who needs to have their feels cuddled every day or they'll cry.&lt;/p&gt;
+
+&lt;p&gt;This perceived attitude is &lt;strong&gt;bullshit&lt;/strong&gt;, and I would like to explain why.&lt;/p&gt;
+
+&lt;p&gt;Firstly, during times of drafted wars like those being mentioned: people fight and die, but in times of peace, people focus on improving whatever aspects of life they feel need to be improved. Obviously if you have armed enemy forces running around your streets (or those of an ally) then the priority will be to sort that out first. Without that, people focus on other things.&lt;/p&gt;
+
+&lt;p&gt;People try to improve the world in various small ways. For a while my way was to improve PHP's educational materials and provide standards, helping projects work together and younger developers waste less time. This empowers developers to build amazing things, and who knows, a few people might code their way out of poverty. I ended up joining the PHP-FIG, and eventually ended up just mediate fights between "leaders" in the PHP community. Playing jackass whisperer is a thankless task, and after lots of requests for me to give up I did. Now I'm trying to teach the internet about equality and feminism. What could go wrong.&lt;/p&gt;
+
+&lt;p&gt;The ways in which people choose to try and improve things will not always seem important to you, especially if it is not a problem you can identify with. It might be tiny, but representative of a larger problem you don't understand. If you have no experience in a problem, you may think it does not exist. You may consider the person to be exaggerating, or lying, or trying to jump on a bandwagon, or trying to impress people.&lt;/p&gt;
+
+&lt;p&gt;Even if you see a problem and are interested in learning about it, if it has not happened to you, who do you talk to see if they're valid?&lt;/p&gt;
+
+&lt;p&gt;Well, you probably end up talking to your friends. If they also haven't experienced these problems, then they're quite likely to just say "Sounds like nonsense to me." Especially if one of them happens to have seen it covered on the news, which also regularly plays into this same narrative of "people are always outraged!"&lt;/p&gt;
+
+&lt;p&gt;&lt;img alt="It's not the corruption, almost daily mass-shootings, having the highest incarceration rate of any country and being ranked only 37th for healthcare by the WHO? Way to focus on the priorities." src="/images/article_images/2016-01-27-why-is-everyone-outraged/trump-pc.jpg" /&gt;&lt;/p&gt;
+
+&lt;p&gt;There is an incredibly interesting first hand account of somebody just having a little joke, and it turning into the the biggest OMFGPOCALYPE of the century. It is called &lt;a href="https://medium.com/@parkermolloy/5-things-the-media-does-to-manufacture-outrage-ba79125e1262"&gt;5 things the media does to manufacture outrage&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Give it a read! One person makes a joke and has a few retweets, some journalist picks it up on a slow news day because apparently Twitter is a source of news. Then other news sites repost it without thought because apparently shit news sites are a source of news. Then everyone jumps on the original person writing the jokes and screams at her to "get a fucking grip". She was never outraged. The people calling her a PC-nut are outraged. Then the news reports on that too.&lt;/p&gt;
+
+&lt;p&gt;These manufactured outrage stories happen not just from daft or lazy journalists looking to fill some time, but sometimes by malicious people. These could be journalists looking to push a particular political narrative, or it could be assholes like 4chan making up a fake aggressive man-hating feminism article to make the average person think "Wow, feminists are nuts."&lt;/p&gt;
+
+&lt;p&gt;Either way, &lt;strong&gt;you're being duped&lt;/strong&gt;. You see enough of these nonsense stories, you hear enough of your friends saying "Everyones offended these days" and eventually - through no fault of your own - you're more likely to think that's whats happening the next time.&lt;/p&gt;
+
+&lt;p&gt;These causes can be anything from harassment at the workplace, how valuable a code of conduct can be to women at a conference, how redefining rape to mean "I didn't say yes I just fell asleep" is important, how "religious freedom" rules legalizing and ratifying homophobia is not ok, what names communities like (and really do not like) to be called, if running a massive advertising campaign at Spotify saying "So easy you Mum could do it" and "No mum not that cloud" is offensive to mothers in general - regardless of how tech your mum might be, etc.&lt;/p&gt;
+
+&lt;p&gt;Some of those situations are &lt;em&gt;clearly&lt;/em&gt; not as severe as others, but they're all treated on the same polar scale. The people who think the whole world is sensitive put every one of these issues on a scale from 0 to 1, where 1 is "I agree this is a problem" and 0 which is "Whiny liberal".&lt;/p&gt;
+
+&lt;p&gt;I've many times pointed out how something is not ideal or a bit daft, then these people argue it forever. When I get frustrated with the circular bullshit arguments they're using to #NahItsFine me, they say I'm overreacting. If they'd put "Not ideal" and "I would like to know more" on their scale, along with "I disagree with that person but they could well be an extremist", then the world would be a far far better place.&lt;/p&gt;
+
+&lt;p&gt;Initially saying "This thing is kinda lame" and then getting frustrated with assholes doesn't make you an asshole, it makes you human. The GamerGate crew (and a few of their ranks in the PHP community) have been intentionally winding people up, by using polite words but generally harassing and bullying in other ways. Then when you tell them to get stuffed, you're a monster who cannot hold a civil conversation about your differing opinions…&lt;/p&gt;
+
+&lt;p&gt;&lt;img alt="Pretending to want a respectful conversation and using respectful words whilst being an out and out bully in other ways? I'd rather swear and be honest instead of being a two-faced shit." src="/images/article_images/2016-01-27-why-is-everyone-outraged/sea-lioning.jpg" /&gt;&lt;/p&gt;
+
+&lt;p&gt;Sadly, people who are either malicious, or have been duped by the propagation of thus "Everyone is outraged" nonsense, will take any moderate view put out there by somebody else and see which end of their 0-1 scale it lands. If that results in 0 they'll spout a pile of bullshit at you and anything you do to try and counter it goes basically nowhere.&lt;/p&gt;
+
+&lt;p&gt;Don't get me wrong, there &lt;em&gt;are&lt;/em&gt; some pretty daft things coming from people who I consider to be extremist in the politically correct debate. For example: my mother - as a teacher of young children in the UK - was forced to sing "Bah Bah Rainbow Sheep" with the kids, instead of "Bah Bah Black Sheep"…&lt;/p&gt;
+
+&lt;p&gt;I personally think that's fairly silly, because some sheep are legitimately black, but I'm sure there were plenty of cases of black kids getting bullied for being "the odd one out" in that sense. That may or may not be something you think of or care about and IMO kids will bully each other about something regardless. Most kids are awful people and we can't save them from that, but I'm certainly not gonna pick a fight over the name of that song especially without knowing more.&lt;/p&gt;
+
+&lt;p&gt;Parents as a group have some pretty varied views on things, but - in the USA especially - a lot of what you hear coming from them are unnecessary screams of "WONT SOMEBODY PROTECT THE CHILDREN". These then get mixed in with other progressives, and we end up in a "Everyones a winner" mollycoddled society. I'm not a fan of that, and I used to lose all the time at everything at school. Luckily things are not all moving in that direction, and the USA is &lt;a href="http://nypost.com/2015/12/16/your-kids-can-walk-to-school-alone-again/"&gt;once again letting children walk home from school&lt;/a&gt; by themselves without the parents getting arrested. Well done.&lt;/p&gt;
+
+&lt;p&gt;The main problem for me here is this: People who are otherwise logical, intelligent people, will very quickly say things like "But everything is sexist, homophobic or racist these days!" purely because they're believing this narrative. They won't evaluate specific situations, research for more information or try to gain any understanding before flapping their mouth all over the place, instead they just lean on their phrases like "Some people are spring-loaded to offended" and assume that every single topic is invalid.&lt;/p&gt;
+
+&lt;p&gt;That's the definition of ignorance. Right?&lt;/p&gt;
+
+&lt;p&gt;Let's look at the &lt;a href="https://github.com/django/django/pull/2692"&gt;"master/slave" nonsense&lt;/a&gt; that the &lt;a href="https://www.djangoproject.com/"&gt;Django Framework&lt;/a&gt; suffered through.&lt;/p&gt;
+
+&lt;p&gt;I personally would not have thought of this. I probably would not have fought for it myself. That - as mentioned above - does not make it invalid. That is probably because it does not affect me, but it does affect plenty of people, and some who you might not even think of at first:&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Thanks as a DevOP, I've always had to endure BS snickering and jokes about being a dominatrix when trying to have a civil conversation about databases. Maybe there's hope this will change globally. And I much prefer primary/replica to the leader/follower, too, since that's a more technical pair that will be more easily understood….without the BS about being a dominatrix. :)&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;That seems pretty fair, right? I'd be annoyed about that. Hell, I get annoyed when people mistake me for being Australian or make Harry Potter jokes so having random muppets making shit jokes about being a dominatrix would probably really grind my gears.&lt;/p&gt;
+
+&lt;p&gt;&lt;img alt="Hilarious irony of people complaining this tiny PR was a waste of &amp;quot;man hours&amp;quot; but then spam the f**k out of the comments thread." src="/images/article_images/2016-01-27-why-is-everyone-outraged/django-master-slave-pr.png" /&gt;&lt;/p&gt;
+
+&lt;p&gt;The pull request was a single commit, touching seven files and (including the test suite) changed only 81 lines of code. The PR was merged in the same day it was created.&lt;/p&gt;
+
+&lt;p&gt;Then a shitload of white-dudes flew in to #WellActually and #NahItsFine the situation.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;This is silly.
+Next we will remove all mention og objects because some people might feel objectified.
+Or classes, because of the poor people that feels they are being discriminated against.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;People who are against change like to use ridiculous slippery slopes to make it look like they have a valid point. This is used &lt;em&gt;all the time&lt;/em&gt; in the news. "Well if we allow gay marriage, next we'll be legalising bestiality!"&lt;/p&gt;
+
+&lt;p&gt;If your point does not stand without needing to get a waterpark of slippery slopes involved, you might not actually have a point.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Is Leader/Follower a dig at victims of cults?&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Smartarsing hard.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;"Are you serious? … In this case, master/slave is used by every database server…"&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Not true, as somebody else points out: "DB2 doesn't use master-slave, it uses primary-standby and occasionally replica. And it's been that way for quite a few years now, so it's by definition not universal, just widespread."&lt;/p&gt;
+
+&lt;p&gt;If you're going to #WellActually please at least do it properly.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Completely and utterly pointless.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Completely and utterly pointless [to you]. See entire post above.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Don't feed the trolls, and just continue to use master and slave.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Well, looking through this thread, there are a lot of people on the pro side offering sentiments of "Cheers" and "Ahh yeah that was a bit annoying", whilst the against are flipping their collective shits over it and calling everyone names.&lt;/p&gt;
+
+&lt;p&gt;If you want to say "I'm not sure about leader/follower, how about primary/secondary or primary/replica" then awesome; that is a constructive conversation, but running in from the wings to shout at people and use "politically correct" as an insult… well it doesn't make you a great person.&lt;/p&gt;
+
+&lt;p&gt;&lt;img alt="What I hear when people use politically correct as an insult" src="/images/article_images/2016-01-27-why-is-everyone-outraged/politically-correct-what-sort-of-world.png" /&gt;&lt;/p&gt;
+
+&lt;p&gt;So, instead of freaking out about problems you don't understand, assuming everyone is just being overly sensitive, being absolutely awful to under-represented groups when they point out reasons they feel uncomfortable in the tech community, then having the gall to suggest there are far fewer of these people in the tech community because they aren't as interested in tech… maybe take a few steps back and think about that whole situation.&lt;/p&gt;
+
+&lt;p&gt;Think really hard.&lt;/p&gt;
+
+&lt;p&gt;Think really &lt;em&gt;really&lt;/em&gt; hard.&lt;/p&gt;
+
+&lt;p&gt;This post has a lot of relevance to the Code of Conduct conversation happening in the PHP community right now. I've got a lot more thoughts on that to come.&lt;/p&gt;
+
+&lt;p&gt;Do me a favour and smash this onto your Twitter feed so we can try to turn a few heads with a bit of sanity and logic.&lt;/p&gt;
+</content>
+  </entry>
+  <entry>
+    <title>Made in Production II: Learning and Improving</title>
+    <link rel="alternate" href="https://philsturgeon.uk/2016/01/22/made-in-production-ii-learning-and-improving/"/>
+    <id>https://philsturgeon.uk/2016/01/22/made-in-production-ii-learning-and-improving/</id>
+    <published>2016-01-22T01:08:00+01:00</published>
+    <updated>2016-05-18T21:43:25+02:00</updated>
+    <summary type="html">Made in Production has been something that my BFF Zack and I have been working on for a while. We had the idea to start selling super-niche programming t-shirts in 2013, we finally got the store up and running on some janky Python in 2014, then shut it down after a few months due to a slew of unforeseen problems. Now the site is back and better than ever, and I thought I'd tell you lot a story.</summary>
+    <content type="html">&lt;p&gt;&lt;a href="http://madeinproduction.com/"&gt;Made in Production&lt;/a&gt; has been something that my BFF &lt;a href="https://twitter.com/zackkitzmiller"&gt;Zack&lt;/a&gt; and I have been working on for a while. We had the idea to start selling super-niche programming t-shirts in 2013, we finally got the store up and running on some janky Python in 2014, then shut it down after a few months due to a slew of unforeseen problems. Now the site is back and better than ever, and I thought I'd tell you lot a story.&lt;/p&gt;
+
+&lt;p&gt;If you don't want to hear a gripping yarn of ups and downs, complications with international shipping, more "but I was deported!" excuses and who knows what else, you can have a short story of cool new stuff.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href="http://madeinproduction.com"&gt;Made in Production&lt;/a&gt; now has womens t-shirts, hoodies to survive "NYC Snowpocalypse 2016: Hyperbole Never Dies but You Might" and some awesome new designs:&lt;/p&gt;
+
+&lt;p&gt;&lt;a href="http://madeinproduction.com/collections/php-6-certified"&gt;&lt;img alt="Amazing new PHP 6 Certified design, brainvented by Gary Hockin, the best thing he's even done." src="/images/article_images/2016-01-22-made-in-production-ii-learning-and-improving/php-6-certified-unisex-asphault.png" /&gt;&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;Go see the &lt;a href="http://madeinproduction.com/collections/all"&gt;rest of our store&lt;/a&gt;. There is some great stuff, and a &lt;em&gt;lot&lt;/em&gt; more coming soon.&lt;/p&gt;
+
+&lt;h2 id="mistakes"&gt;Mistakes&lt;/h2&gt;
+
+&lt;p&gt;I feel it's important to blog about mistakes. It's hard to do, because if you only blog about success then people call you a braggart or a egotistical muppet, but if you blog about problems they try and use it against you or make fun of you.&lt;/p&gt;
+
+&lt;p&gt;Well stuff those people. Here's a story of things Zack and I learned getting Made in Production back online, that you can hopefully use if you ever try doing something similar.&lt;/p&gt;
+
+&lt;h3 id="lean-startup-is-hard"&gt;Lean Startup is Hard&lt;/h3&gt;
+
+&lt;p&gt;We wanted to try doing this entirely by ourselves, without spending anything more than we had to. It was a silly side-project, and not a VC-backed startup in the valley. It was literally Zack and I playing with the idea over beers on his sofa with children and dogs hanging off of us.&lt;/p&gt;
+
+&lt;p&gt;We figured a Lean Startup approach would be a good idea, and before we get too much further we should see if anyone wanted to buy this stuff. So we did that. We got our awesome friend Laura Bohill to make our first design, then we shoved it on a static HTML page and use a tiny bit of Python and the Stripe SDK. We figured "If a few people actually buy one of these shirts, we can put in an order and get them sent out. IF anyone bothers. Lol."&lt;/p&gt;
+
+&lt;p&gt;That seemed fine, until 40 orders came in and we didn't have any bloody t-shirts. Oops. Ahh well, we'll just put in an order with the API-driven supplier we looked at. Can't be too hard, we'll just use their API…&lt;/p&gt;
+
+&lt;h3 id="shirtsio-was-awful"&gt;Shirts.io was awful&lt;/h3&gt;
+
+&lt;p&gt;Shirts.io has now rebranded to &lt;a href="https://scalablepress.com/"&gt;ScalablePress&lt;/a&gt;. It was terrible. Their API was so complicated I could barely work out what to do, and the documentation was as useful as a chocolate teapot. After days of failing to build a script that could take our orders from the PostgreSQL database and turn them into API orders on Shirts.io, I just gave up and tried doing it manually.&lt;/p&gt;
+
+&lt;p&gt;Two weeks later, I still couldn't send the damn order off. Their website didn't work. It's a bit better now, but a sample order with them a few months back took a month to fulfill, and that was only after I phoned them up asking what was taking so long. "Oops we forgot!" is not a cool answer for a supplier. They lost their original support guy, who was the best part of the old company. He was on speed dial and recognized my voice when I called. So many problems there.&lt;/p&gt;
+
+&lt;p&gt;I tried &lt;a href="http://www.merchify.com/"&gt;Merchify&lt;/a&gt; (hilariously after meeting the guy that runs &lt;a href="http://www.engrish.com/"&gt;Engrish.com&lt;/a&gt; at Thanksgiving dinner) but it's buggy, their packaging is non-customizable, I couldn't add womens variants and they try to be the one source of truth for all data instead of just syncing with your store.&lt;/p&gt;
+
+&lt;p&gt;No, I would strongly recommend &lt;a href="https://www.theprintful.com/a/61467:779304a8944d10bf23761cd2f9717520"&gt;Printful&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;They offer a &lt;em&gt;huge&lt;/em&gt; selection of products from t-shirts to beanies, and from posters to pillow cases. Amazing stuff.&lt;/p&gt;
+
+&lt;h2 id="ups-and-fedex-are-nuts-and-usps-is-almost-useless"&gt;UPS and FedEx are nuts, and USPS is almost useless&lt;/h2&gt;
+
+&lt;p&gt;Sending a t-shirt to the UK from a Brooklyn, NY UPS vendor was about $60. Are you kidding me? FedEx wasn't much better. Even at their slowest options, they're just undoable.&lt;/p&gt;
+
+&lt;p&gt;No, you have to use USPS. They're ok domestically, but going to the post office is an experience I would not want to inflict on anyone. I had all the time in the world after Kapture went beeswax, but it was still killing me. They'd be about $10 to get the shirts international and $2-4 domestically.&lt;/p&gt;
+
+&lt;p&gt;Not bad, but they'll happily post stuff off to literally any country but not tell you if it even got on the plane heading there. Plenty of stuff went missing, and we had to swallow the cost to send the customer a refund. Nobody got screwed over but us, we saw to that.&lt;/p&gt;
+
+&lt;h2 id="stampscom-is-a-bargain"&gt;Stamps.com is a bargain&lt;/h2&gt;
+
+&lt;p&gt;&lt;a href="http://stamps.com/"&gt;Stamps.com&lt;/a&gt; is a massive discount sending via USPS, and it means I don't have to cycle a bag full of shirts to the post office. We still had the "no idea if it will get there" issue, and we also had to buy a printer to print the labels! And we had to get the scales, and this meant only one of us could send them all out.&lt;/p&gt;
+
+&lt;p&gt;If I went away to a conference, I had to make sure Zack had enough t-shirts to get the job done. Ugh.&lt;/p&gt;
+
+&lt;p&gt;Sod manual shipping. Just don't do it. Don't manage stock at all. Get them to fulfill entirely for you. Not only is it easier, but it reduces how much you are truly spending on shipping. If you get one massive box of t-shirts sent to you, then post those t-shirts back off elsewhere, you've doubled the amount you're spending on shipping.&lt;/p&gt;
+
+&lt;h2 id="lower-the-unit-price-in-scalable-way"&gt;Lower the Unit Price in Scalable Way&lt;/h2&gt;
+
+&lt;p&gt;Shirts.io did this thing where if you order a few its about $20 a shirt, but if you get to say 20 they're $12 a shirt. Or whatever it was. Basically if we had a slow week (4 orders) we'd just order up more than we needed and have them sent out to my place. Then I could manually post out whatever was needed and problem solved.&lt;/p&gt;
+
+&lt;p&gt;This would be awesome if I could have got a script running with their API, but in all that time I never could because it was awful. Theoretically I could have built something to post off known customer orders to specific places, then the rest would come to me, and I'd mail things out of stock until we needed more for others.&lt;/p&gt;
+
+&lt;p&gt;Splitting automated fulfillment and manual fulfillment is not something you want to get into. It's near impossible to achieve, time consuming, hard to remember who has what, and even the funkiest spreadsheet is going to get out of date.&lt;/p&gt;
+
+&lt;p&gt;Find a supplier (like &lt;a href="https://www.theprintful.com/a/61467:779304a8944d10bf23761cd2f9717520"&gt;Printful&lt;/a&gt;) who will handle fulfillment entirely for you. Sure it's more expensive, but complicating the whole problem just to micro-optimize on unit price is not worth the trouble.&lt;/p&gt;
+
+&lt;p&gt;In one week we've got Made in Production revenue to $1,300, and if we can get it up to $5,000 we'll get a 5% discount on the base price of most items. We get that discount (and it'll increase as revenue does) all without having to have a massive box of t-shirts in my apartment, getting all chewed up by my turtle.&lt;/p&gt;
+
+&lt;p&gt;Your time has to factor in as well, and doing literally nothing is the best option.&lt;/p&gt;
+
+&lt;h2 id="diy-doesnt-help"&gt;DIY Doesn't Help&lt;/h2&gt;
+
+&lt;p&gt;As programmers Zack and I obviously thought we could do it ourselves. The problem to e-commerce is its much larger than you think. The feature requirements are almost infinite, and there is no such thing as a simple store.&lt;/p&gt;
+
+&lt;p&gt;We built a simple store that sold a single t-shirt originally. Then we needed women's variants. And different products. And different shipping speeds.&lt;/p&gt;
+
+&lt;p&gt;Wouldn't it be cool if we could add coupons? What about referral links? How about tracking abandoned carts? What about PayPal? And Bitcoin?!&lt;/p&gt;
+
+&lt;p&gt;If we were working on this as a full time job it would make sense, but that's not how Lean Startup stuff works, and that wasn't the goal. The original site sold 100 shirts ever, so if we spent all this time building it ourselves we wouldn't have made a penny. Remember, our time is worth something too.&lt;/p&gt;
+
+&lt;p&gt;No. Use an existing solution, and make sure it has integration for the supplier you're using.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href="https://www.shopify.com/"&gt;Shopify&lt;/a&gt; and &lt;a href="https://www.theprintful.com/a/61467:779304a8944d10bf23761cd2f9717520"&gt;Printful&lt;/a&gt; work together like a charm.&lt;/p&gt;
+
+&lt;p&gt;The monthly cost of the store should be redeemable within a few sales a month. And if you can't build up sales enough on your store to cover $15-30, then you might need to rethink your store.&lt;/p&gt;
+
+&lt;h2 id="automatically-fulfillment-can-cost"&gt;Automatically Fulfillment Can Cost&lt;/h2&gt;
+
+&lt;p&gt;One downside with the automatic fulfillment is that you can be without the customers money for a few days while it winds its way through the Internets and into your bank account. It's not like they pay you and that money goes straight to whoever is making the t-shirt. If only it were so easy.&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Customer completes checkout on Shopify, paying you via:
+    &lt;ul&gt;
+      &lt;li&gt;Stripe: The money won't be in your bank account for a few days but does happen automatically.&lt;/li&gt;
+      &lt;li&gt;PayPal: The money won't be in your bank account for a few days and you have to remember to withdraw it.&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;The fulfillment company is paid immediately from whichever payment source you chose:
+    &lt;ul&gt;
+      &lt;li&gt;Bank account: Remember there's no money in there yet and waiting adds several more days, which will not make the customer happy.&lt;/li&gt;
+      &lt;li&gt;PayPal: The company withdraws money momentarily before Shopify puts it into your account, which could hit your bank or credit card for the money before the customers PayPal money gets in there.&lt;/li&gt;
+      &lt;li&gt;Credit card: Pretty cool if you get cash-back rewards on purchases, but if you get 100 sales you could have a scary credt card statement, and you have to hope there aren't any bank holidays getting in the way of Stripe/PayPal getting your money to your account in time for you to pay off the credit card…&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;We have it set up to take money from PayPal, and PayPal should then hit my CC as a backup source. If that was what PayPal was actually bloody doing it would be fine, but it seems to arbitrarily take it from any account it wants.&lt;/p&gt;
+
+&lt;p&gt;&lt;img alt="Mint is properly confused about my new printing habit" src="/images/article_images/2016-01-22-made-in-production-ii-learning-and-improving/mint-says-wut.png" /&gt;&lt;/p&gt;
+
+&lt;p&gt;Setting up a separate PayPal with a separate bank account, and having all money go into that PayPal or that bank, then using PayPal as the payment source with the separate bank account as the backup seems like a winner. You might need a credit card in there somehow early on, until you have enough profits in the PayPal account to act as a buffer for a large surge in Stripe payments happening within that X days waiting period.&lt;/p&gt;
+
+&lt;p&gt;Until we have that going, telling Printful to let me manually confirm orders and select either PayPal if it has money, or my CC if it does not, seems like a winner approach.&lt;/p&gt;
+
+&lt;p&gt;Complicated huh?&lt;/p&gt;
+
+&lt;h2 id="dont-rush-international"&gt;Don't Rush International&lt;/h2&gt;
+
+&lt;p&gt;International sales are really hard. Just dealing with VAT for the EU and HST for Canada is enough of a PITA, but the last thing I need is the Chinese government on my ass for not paying enough duty tax because the shipment was over RMB 50 and an angry customer wondering where their t-shirt has gone.&lt;/p&gt;
+
+&lt;p&gt;We currently are confident shipping to the USA, Canada and the EU. As we learn more we'll grow that list out as much as possible, but right now I am not prepared to sit around working out how much tax I have to pay Azerbaijan at the end of their tax year due to the one sale we made there.&lt;/p&gt;
+
+&lt;p&gt;Folks will be sad you don't ship to them, and quite rightly so, but just politely usher them towards a mailing list in the meantime. Over extending your shipping is just going to lead to chargebacks and headaches, and is a solid way to end your online shop before it has a chance to spread its wings.&lt;/p&gt;
+
+&lt;h2 id="summary"&gt;Summary&lt;/h2&gt;
+
+&lt;p&gt;I'm excited about &lt;a href="http://madeinproduction.com/"&gt;the new store&lt;/a&gt;. We've put a lot more research into things this time, and we've overcome literally all the problems we had before. It has turned a profit in the first few weeks, and we're no longer randomly losing money or wasting huge amounts of time lugging boxes around.&lt;/p&gt;
+
+&lt;p&gt;The plan now is just to make more designs and get them up on the store. We have a couple of Python ones, another PHP shirt, one on maintaining the "status quo" (deep) and some silly API related stuff. Fun times!&lt;/p&gt;
+
+&lt;p&gt;I'm sure there will be a few people out there having a snootymock at how much trouble we had selling t-shirts, but I'll tell you it's really not as easy as it looks - especially at small scale. Throwing something on Teespring for a one-time round of shirts that everyone has to wait months to get (if ever) is one thing, but building a self-sustaining store with multiple variants, colours, product types, etc. is another.&lt;/p&gt;
+
+&lt;p&gt;If you have any feedback on the store, potential design ideas or want to get a bulk of any of them for your conference/meetup/usergroup, then get in touch in any of the usual ways.&lt;/p&gt;
+</content>
+  </entry>
+</feed>
